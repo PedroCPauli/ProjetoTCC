@@ -1,7 +1,9 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Link, router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
+
 import {
   Alert,
   KeyboardAvoidingView,
@@ -13,134 +15,349 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+
 import * as Animatable from 'react-native-animatable';
+
 import { Input } from "../components/input";
+
+import { supabase } from "../lib/supabase";
 
 export default function Index() {
 
-  const [email, setEmail] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
-  const [biometryType, setBiometryType] = useState<string>("Biometria");
+  const [usuario, setUsuario] =
+    useState<string>("");
 
-  const emailRef = useRef<TextInput>(null);
-  const passwordRef = useRef<TextInput>(null);
+  const [password, setPassword] =
+    useState<string>("");
 
-  async function verifyAvaliableAuthentication(): Promise<void> {
+  const usuarioRef =
+    useRef<TextInput>(null);
+
+  const passwordRef =
+    useRef<TextInput>(null);
+
+  async function verifyAvaliableAuthentication():
+    Promise<void> {
+
     try {
-      const compatible = await LocalAuthentication.hasHardwareAsync();
+
+      const compatible =
+        await LocalAuthentication
+          .hasHardwareAsync();
 
       if (!compatible) {
-        Alert.alert("Erro", "Dispositivo não suporta biometria");
+
+        console.log(
+          "Dispositivo não suporta biometria"
+        );
+
         return;
       }
 
-      const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
-
-      if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
-        setBiometryType("Reconhecimento Facial");
-      } else if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
-        setBiometryType("Impressão Digital");
-      }
-
     } catch (error) {
+
       console.log(error);
     }
   }
 
-  async function handleAuthentication() {
-    const auth = await LocalAuthentication.authenticateAsync({
-      promptMessage: "Autentique-se"
-    });
+  async function handleSigIn():
+    Promise<void> {
 
-    if (auth.success) {
-      router.replace("/ponto");
-    } else {
-      Alert.alert("Erro", "Falha na autenticação");
+    /*
+      VALIDA CAMPOS
+    */
+
+    if (
+      !usuario.trim() ||
+      !password.trim()
+    ) {
+
+      Alert.alert(
+        "Entrar",
+        "Preencha usuário e senha"
+      );
+
+      return;
+    }
+
+    try {
+
+      /*
+        BUSCA USUÁRIO
+      */
+
+      const {
+        data,
+        error
+
+      } = await supabase
+
+        .from("usuario")
+
+        .select("*")
+
+        .eq("usuario", usuario)
+
+        .eq("senha", password)
+
+        .single();
+
+      /*
+        LOGIN INVÁLIDO
+      */
+
+      if (error || !data) {
+
+        Alert.alert(
+          "Erro",
+          "Usuário ou senha inválidos"
+        );
+
+        return;
+      }
+
+      console.log(
+        "Usuário encontrado:",
+        data
+      );
+
+      /*
+        SALVA USUÁRIO LOGADO
+      */
+
+      await AsyncStorage.setItem(
+        "@medponto_usuario",
+        JSON.stringify(data)
+      );
+
+      /*
+        POSSUI BIOMETRIA
+      */
+
+      if (data.biometriaativa === true) {
+
+        const auth =
+          await LocalAuthentication
+            .authenticateAsync({
+
+              promptMessage:
+                "Confirme sua biometria",
+
+              cancelLabel:
+                "Cancelar"
+
+            });
+
+        /*
+          BIOMETRIA INVÁLIDA
+        */
+
+        if (!auth.success) {
+
+          Alert.alert(
+            "Erro",
+            "Biometria inválida"
+          );
+
+          return;
+        }
+
+        Alert.alert(
+          "Sucesso",
+          "Login realizado com biometria!"
+        );
+
+        router.replace("/ponto");
+
+      } else {
+
+        /*
+          SEM BIOMETRIA
+        */
+
+        Alert.alert(
+
+          "Biometria",
+
+          "Sem biometria cadastrada, continuar somente com senha?",
+
+          [
+
+            {
+              text: "Não",
+
+              style: "cancel",
+
+              onPress: () => {
+
+                router.replace("/singup");
+              }
+            },
+
+            {
+              text: "Sim",
+
+              onPress: () => {
+
+                Alert.alert(
+                  "Sucesso",
+                  "Login realizado com sucesso!"
+                );
+
+                router.replace("/ponto");
+              }
+            }
+          ]
+        );
+      }
+
+    } catch (error) {
+
+      console.log(error);
+
+      Alert.alert(
+        "Erro",
+        "Não foi possível realizar login"
+      );
     }
   }
 
   useEffect(() => {
+
     verifyAvaliableAuthentication();
+
   }, []);
 
-  function handleSigIn(): void {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert("Entrar", "Preencha e-mail e senha");
-      return;
-    }
-
-    router.replace("/ponto");
-  }
-
   return (
+
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.select({ ios: "padding", android: "height" })}
+
+      behavior={Platform.select({
+
+        ios: "padding",
+        android: "height"
+
+      })}
     >
+
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1 }}
+
+        contentContainerStyle={{
+          flexGrow: 1
+        }}
+
         keyboardShouldPersistTaps="handled"
       >
+
         <View style={styles.container}>
 
           <Animatable.Image
+
             animation="fadeInDown"
+
             duration={1500}
-            source={require("../assets/logoApp.png")}
+
+            source={
+              require("../assets/logoApp.png")
+            }
+
             style={styles.illustration}
           />
 
-          <Text style={styles.title}>Entrar</Text>
+          <Text style={styles.title}>
+            Entrar
+          </Text>
+
           <Text style={styles.subtitle}>
-            Acesse sua conta com e-mail e senha
+
+            Acesse sua conta
+            com usuário e senha
+
           </Text>
 
           <View style={styles.card}>
 
             <Input
-              ref={emailRef}
-              placeholder="E-mail"
-              keyboardType="email-address"
-              returnKeyType="next"
+
+              ref={usuarioRef}
+
+              placeholder="Usuário"
+
               autoCapitalize="none"
-              onSubmitEditing={() => passwordRef.current?.focus()}
-              onChangeText={setEmail}
+
+              returnKeyType="next"
+
+              onSubmitEditing={() =>
+                passwordRef.current?.focus()
+              }
+
+              onChangeText={setUsuario}
+
+              value={usuario}
             />
 
             <Input
+
               ref={passwordRef}
+
               placeholder="Senha"
+
               secureTextEntry
+
               returnKeyType="done"
+
               onSubmitEditing={handleSigIn}
+
               onChangeText={setPassword}
+
+              value={password}
             />
 
-            <TouchableOpacity style={styles.button} onPress={handleSigIn}>
-              <Text style={styles.buttonText}>Entrar</Text>
-            </TouchableOpacity>
-
             <TouchableOpacity
-              style={styles.bioButton}
-              onPress={handleAuthentication}
+
+              style={styles.button}
+
+              onPress={handleSigIn}
             >
-              <MaterialIcons name="fingerprint" size={24} color="#fff" />
+
+              <MaterialIcons
+                name="login"
+                size={22}
+                color="#fff"
+              />
+
               <Text style={styles.buttonText}>
-                Entrar com {biometryType}
+                Entrar
               </Text>
+
             </TouchableOpacity>
 
           </View>
 
           <Text style={styles.footerText}>
-            Não tem uma conta?{' '}
-            <Link href={'/singup'} style={styles.footerLink}>
+
+            Não tem uma conta?
+
+            {' '}
+
+            <Link
+
+              href={'/singup'}
+
+              style={styles.footerLink}
+            >
+
               Cadastre-se aqui
+
             </Link>
+
           </Text>
 
         </View>
+
       </ScrollView>
+
     </KeyboardAvoidingView>
   )
 }
@@ -174,30 +391,40 @@ const styles = StyleSheet.create({
 
   card: {
     backgroundColor: '#fff',
+
     borderRadius: 20,
+
     padding: 20,
+
     elevation: 5,
+
     gap: 14,
+
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+
+    shadowOffset: {
+      width: 0,
+      height: 2
+    },
+
     shadowOpacity: 0.1,
+
     shadowRadius: 4
   },
 
   button: {
     backgroundColor: '#2E86DE',
-    padding: 15,
-    borderRadius: 12,
-    alignItems: 'center'
-  },
 
-  bioButton: {
-    backgroundColor: '#27AE60',
     padding: 15,
+
     borderRadius: 12,
+
     alignItems: 'center',
+
     flexDirection: 'row',
+
     justifyContent: 'center',
+
     gap: 8
   },
 
@@ -217,4 +444,5 @@ const styles = StyleSheet.create({
     color: '#2563EB',
     fontWeight: 'bold'
   }
-})
+
+});
