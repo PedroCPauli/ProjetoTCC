@@ -1,7 +1,9 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
+
 import {
   Alert,
   Animated,
@@ -12,8 +14,9 @@ import {
   View
 } from "react-native";
 
-export default function PontoScreen() {
+import { supabase } from "../lib/supabase";
 
+export default function PontoScreen() {
   const [dataAtual, setDataAtual] = useState("");
   const [horaAtual, setHoraAtual] = useState("");
   const [entrada, setEntrada] = useState("");
@@ -43,7 +46,6 @@ export default function PontoScreen() {
     const intervalo = setInterval(atualizarHora, 1000);
 
     return () => clearInterval(intervalo);
-
   }, []);
 
   const animatePressIn = () => {
@@ -61,38 +63,116 @@ export default function PontoScreen() {
   };
 
   const baterPonto = async () => {
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
 
-    let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Erro", "Permissão de localização negada");
+        return;
+      }
 
-    if (status !== 'granted') {
-      Alert.alert('Erro', 'Permissão negada');
-      return;
-    }
+      const agora = new Date();
 
-    const horario = new Date().toLocaleTimeString("pt-BR", {
-      timeZone: "America/Sao_Paulo"
-    });
+      // ✅ FORMATO CORRETO PADRÃO BANCO
+      const data = agora.toLocaleDateString("sv-SE"); // YYYY-MM-DD
 
-    setStatusLocal('Localização validada com sucesso');
+      const hora = agora.toLocaleTimeString("pt-BR", {
+        timeZone: "America/Sao_Paulo"
+      });
 
-    if (!entrada) {
-      setEntrada(horario);
-    } else if (!saida) {
-      setSaida(horario);
+      const userStorage = await AsyncStorage.getItem("@medponto_usuario");
+
+      if (!userStorage) {
+        Alert.alert("Erro", "Usuário não encontrado");
+        return;
+      }
+
+      const usuario = JSON.parse(userStorage);
+
+      if (!usuario?.idusuario) {
+        Alert.alert("Erro", "ID do usuário inválido");
+        return;
+      }
+
+      // 🔥 pega ponto do dia (apenas aberto)
+      const { data: pontoExistente, error: selectError } = await supabase
+        .from("ponto")
+        .select("*")
+        .eq("idusuario", usuario.idusuario)
+        .eq("data", data)
+        .maybeSingle();
+
+      if (selectError) {
+        Alert.alert("Erro", selectError.message);
+        return;
+      }
+
+      // =========================
+      // 🟢 ENTRADA
+      // =========================
+      if (!pontoExistente) {
+        const { error } = await supabase
+          .from("ponto")
+          .insert([
+            {
+              idusuario: usuario.idusuario,
+              idhospital: usuario.idhospital || 1,
+              data,
+              horaentrada: hora,
+              horasaida: null,
+              validacaobiometrica: false,
+              validacaolocalizacao: true
+            }
+          ]);
+
+        if (error) {
+          Alert.alert("Erro", error.message);
+          return;
+        }
+
+        setEntrada(hora);
+        setStatusLocal("Entrada registrada com sucesso");
+        return;
+      }
+
+      // =========================
+      // 🔴 SAÍDA (somente se ainda não tem)
+      // =========================
+      if (pontoExistente.horasaida) {
+        Alert.alert("Aviso", "Ponto já finalizado hoje");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("ponto")
+        .update({
+          horasaida: hora
+        })
+        .eq("idponto", pontoExistente.idponto);
+
+      if (error) {
+        Alert.alert("Erro", error.message);
+        return;
+      }
+
+      setSaida(hora);
+      setStatusLocal("Saída registrada com sucesso");
+
+    } catch (err) {
+      console.log(err);
+      Alert.alert("Erro", "Erro inesperado");
     }
   };
 
   return (
     <View style={styles.container}>
-
       <View style={styles.card}>
-
         <Text style={styles.titulo}>Registro de Ponto</Text>
 
         <Text style={styles.data}>📅 {dataAtual}</Text>
         <Text style={styles.hora}>{horaAtual}</Text>
 
-        {statusLocal !== '' && (
+        {statusLocal !== "" && (
           <Text style={styles.status}>{statusLocal}</Text>
         )}
 
@@ -101,29 +181,22 @@ export default function PontoScreen() {
           onPressOut={animatePressOut}
           onPress={baterPonto}
         >
-          <Animated.View
-            style={[
-              styles.botao,
-              { transform: [{ scale: scaleAnim }] }
-            ]}
-          >
+          <Animated.View style={[styles.botao, { transform: [{ scale: scaleAnim }] }]}>
             <MaterialIcons name="fingerprint" size={26} color="#fff" />
             <Text style={styles.textoBotao}>Bater Ponto</Text>
           </Animated.View>
         </TouchableWithoutFeedback>
 
-        {entrada !== '' && (
+        {entrada !== "" && (
           <Text style={styles.registro}>✅ Entrada: {entrada}</Text>
         )}
 
-        {saida !== '' && (
+        {saida !== "" && (
           <Text style={styles.registro}>❌ Saída: {saida}</Text>
         )}
-
       </View>
 
       <View style={styles.menu}>
-
         <TouchableOpacity onPress={() => router.replace('/')}>
           <MaterialIcons name="home" size={28} color="#555" />
         </TouchableOpacity>
@@ -135,13 +208,10 @@ export default function PontoScreen() {
         <TouchableOpacity onPress={() => router.replace('/config')}>
           <MaterialIcons name="settings" size={28} color="#555" />
         </TouchableOpacity>
-
       </View>
-
     </View>
   );
 }
-
 const styles = StyleSheet.create({
 
   container: {
@@ -222,4 +292,4 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: '#ddd'
   }
-})
+});

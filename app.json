@@ -8,8 +8,6 @@
     "scheme": "medpontonovo",
     "userInterfaceStyle": "automatic",
 
-    "newArchEnabled": false,
-
     "ios": {
       "supportsTablet": true
     },
@@ -21,10 +19,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-
       "permissions": [
         "ACCESS_FINE_LOCATION"
       ]
@@ -37,7 +33,6 @@
 
     "plugins": [
       "expo-router",
-
       [
         "expo-splash-screen",
         {
@@ -45,13 +40,11 @@
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
-
           "dark": {
             "backgroundColor": "#000000"
           }
         }
       ],
-
       "@react-native-community/datetimepicker",
       "expo-web-browser"
     ],
