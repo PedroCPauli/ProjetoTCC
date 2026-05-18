@@ -167,7 +167,19 @@ export default function Index() {
           "Login realizado com biometria!"
         );
 
-        router.replace("/ponto");
+        /*
+          ADMIN = 1
+          PLANTONISTA = 2
+        */
+
+        if (data.idtipousuario === 1) {
+
+          router.replace("/admin");
+
+        } else {
+
+          router.replace("/ponto");
+        }
 
       } else {
 
@@ -204,7 +216,19 @@ export default function Index() {
                   "Login realizado com sucesso!"
                 );
 
-                router.replace("/ponto");
+                /*
+                  ADMIN = 1
+                  PLANTONISTA = 2
+                */
+
+                if (data.idtipousuario === 1) {
+
+                  router.replace("/admin");
+
+                } else {
+
+                  router.replace("/ponto");
+                }
               }
             }
           ]

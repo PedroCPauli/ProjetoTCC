@@ -1,5 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons'
 import * as LocalAuthentication from 'expo-local-authentication'
+import * as Location from 'expo-location'
 import { Link } from "expo-router"
 import { useState } from "react"
 
@@ -15,45 +16,96 @@ import {
 } from "react-native"
 
 import { Input } from "../components/input"
-
 import { supabase } from "../lib/supabase"
 
 export default function Signup() {
 
-  const [nome, setNome] =
-    useState("")
+  const [nome, setNome] = useState("")
+  const [usuario, setUsuario] = useState("")
+  const [email, setEmail] = useState("")
 
-  const [usuario, setUsuario] =
-    useState("")
+  const [cep, setCep] = useState("")
+  const [logradouro, setLogradouro] = useState("")
+  const [numero, setNumero] = useState("")
+  const [complemento, setComplemento] = useState("")
+  const [bairro, setBairro] = useState("")
 
-  const [email, setEmail] =
-    useState("")
+  const [latitude, setLatitude] = useState("")
+  const [longitude, setLongitude] = useState("")
 
-  const [senha, setSenha] =
-    useState("")
+  const [senha, setSenha] = useState("")
+  const [confirmarSenha, setConfirmarSenha] = useState("")
 
-  const [
-    confirmarSenha,
-    setConfirmarSenha
-  ] = useState("")
+  const [tipoUsuario, setTipoUsuario] = useState("")
+  const [loading, setLoading] = useState(false)
 
-  const [
-    tipoUsuario,
-    setTipoUsuario
-  ] = useState("")
+  /*
+    ============================
+    BUSCA CEP AUTOMÁTICO
+    ============================
+  */
 
-  const [loading, setLoading] =
-    useState(false)
+  async function buscarCEP(valor: string) {
+
+    const cepLimpo =
+      valor.replace(/\D/g, "")
+
+    setCep(cepLimpo)
+
+    if (cepLimpo.length !== 8) {
+      return
+    }
+
+    try {
+
+      const response =
+        await fetch(
+          `https://viacep.com.br/ws/${cepLimpo}/json/`
+        )
+
+      const data =
+        await response.json()
+
+      if (data.erro) {
+
+        Alert.alert(
+          "Erro",
+          "CEP não encontrado"
+        )
+
+        return
+      }
+
+      setLogradouro(
+        data.logradouro || ""
+      )
+
+      setBairro(
+        data.bairro || ""
+      )
+
+    } catch (error) {
+
+      console.log(error)
+
+      Alert.alert(
+        "Erro",
+        "Falha ao buscar CEP"
+      )
+    }
+  }
+
+  /*
+    ============================
+    ATIVAR BIOMETRIA
+    ============================
+  */
 
   async function ativarBiometria(
     idUsuario: number
   ) {
 
     try {
-
-      /*
-        VERIFICA HARDWARE
-      */
 
       const compatible =
         await LocalAuthentication
@@ -69,10 +121,6 @@ export default function Signup() {
         return
       }
 
-      /*
-        VERIFICA SE EXISTE BIOMETRIA
-      */
-
       const enrolled =
         await LocalAuthentication
           .isEnrolledAsync()
@@ -81,25 +129,18 @@ export default function Signup() {
 
         Alert.alert(
           "Biometria",
-          "Nenhuma biometria cadastrada no dispositivo"
+          "Nenhuma biometria cadastrada"
         )
 
         return
       }
-
-      /*
-        AUTENTICA BIOMETRIA
-      */
 
       const auth =
         await LocalAuthentication
           .authenticateAsync({
 
             promptMessage:
-              "Confirme sua biometria",
-
-            fallbackLabel:
-              "Usar senha"
+              "Confirme sua biometria"
 
           })
 
@@ -107,40 +148,33 @@ export default function Signup() {
 
         Alert.alert(
           "Erro",
-          "Falha na autenticação biométrica"
+          "Falha biométrica"
         )
 
         return
       }
 
-      /*
-        ATIVA BIOMETRIA NO BANCO
-      */
+      const { error } =
+        await supabase
 
-      const {
-        error
-      } = await supabase
+          .from("usuario")
 
-        .from("usuario")
+          .update({
 
-        .update({
+            biometriaativa: true
 
-          biometriaativa: true
+          })
 
-        })
-
-        .eq(
-          "idusuario",
-          idUsuario
-        )
+          .eq(
+            "idusuario",
+            idUsuario
+          )
 
       if (error) {
 
-        console.log(error)
-
         Alert.alert(
           "Erro",
-          "Não foi possível ativar biometria"
+          "Falha ao ativar biometria"
         )
 
         return
@@ -148,7 +182,7 @@ export default function Signup() {
 
       Alert.alert(
         "Sucesso",
-        "Biometria ativada com sucesso!"
+        "Biometria ativada"
       )
 
     } catch (error) {
@@ -157,23 +191,92 @@ export default function Signup() {
 
       Alert.alert(
         "Erro",
-        "Erro ao ativar biometria"
+        "Erro biometria"
       )
     }
   }
 
+  /*
+    ============================
+    PEGAR LOCALIZAÇÃO
+    ============================
+  */
+
+  async function capturarLocalizacao() {
+
+    try {
+
+      const { status } =
+        await Location
+          .requestForegroundPermissionsAsync()
+
+      if (status !== "granted") {
+
+        Alert.alert(
+          "Erro",
+          "Permissão negada"
+        )
+
+        return null
+      }
+
+      /*
+        FORÇA GPS ALTA PRECISÃO
+      */
+
+      const location =
+        await Location
+          .getCurrentPositionAsync({
+
+            accuracy:
+              Location.Accuracy.High
+
+          })
+
+      return {
+
+        latitude:
+          location.coords.latitude,
+
+        longitude:
+          location.coords.longitude
+      }
+
+    } catch (error) {
+
+      console.log(error)
+
+      /*
+        REMOVE O ERRO DO EMULADOR
+      */
+
+      Alert.alert(
+        "Erro",
+        "Não foi possível obter localização.\n\nNo Android Studio:\n\nClique nos 3 pontos do emulador > Location > informe Latitude e Longitude válidas."
+      )
+
+      return null
+    }
+  }
+
+  /*
+    ============================
+    CADASTRAR
+    ============================
+  */
+
   async function handleSignup() {
 
-    /*
-      VALIDA CAMPOS
-    */
-
     if (
-      !nome.trim() ||
-      !usuario.trim() ||
-      !email.trim() ||
-      !senha.trim() ||
-      !confirmarSenha.trim()
+      !nome ||
+      !usuario ||
+      !email ||
+      !senha ||
+      !confirmarSenha ||
+      !cep ||
+      !logradouro ||
+      !numero ||
+      !bairro
     ) {
 
       Alert.alert(
@@ -184,68 +287,15 @@ export default function Signup() {
       return
     }
 
-    /*
-      VALIDA E-MAIL
-    */
-
-    const emailRegex =
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-    if (!emailRegex.test(email)) {
-
-      Alert.alert(
-        "Erro",
-        "Informe um e-mail válido"
-      )
-
-      return
-    }
-
-    /*
-      VALIDA TIPO USUÁRIO
-    */
-
     if (!tipoUsuario) {
 
       Alert.alert(
         "Erro",
-        "Selecione o tipo de usuário"
+        "Selecione o tipo usuário"
       )
 
       return
     }
-
-    /*
-      VALIDA SENHA
-    */
-
-    if (senha.length < 8) {
-
-      Alert.alert(
-        "Erro",
-        "A senha deve possuir no mínimo 8 caracteres"
-      )
-
-      return
-    }
-
-    /*
-      VALIDA CONFIRMAR SENHA
-    */
-
-    if (confirmarSenha.length < 8) {
-
-      Alert.alert(
-        "Erro",
-        "A confirmação da senha deve possuir no mínimo 8 caracteres"
-      )
-
-      return
-    }
-
-    /*
-      VALIDA SENHAS IGUAIS
-    */
 
     if (senha !== confirmarSenha) {
 
@@ -260,6 +310,27 @@ export default function Signup() {
     try {
 
       setLoading(true)
+
+      /*
+        PEGA LOCALIZAÇÃO
+      */
+
+      const localizacao =
+        await capturarLocalizacao()
+
+      if (!localizacao) {
+
+        setLoading(false)
+        return
+      }
+
+      setLatitude(
+        localizacao.latitude.toString()
+      )
+
+      setLongitude(
+        localizacao.longitude.toString()
+      )
 
       /*
         ADMIN = 1
@@ -284,11 +355,17 @@ export default function Signup() {
 
         .insert({
 
-          logradouro: "",
-          numero: "",
-          complemento: "",
-          bairro: "",
-          cep: ""
+          cep,
+          logradouro,
+          numero,
+          complemento,
+          bairro,
+
+          latitude:
+            localizacao.latitude,
+
+          longitude:
+            localizacao.longitude
 
         })
 
@@ -298,10 +375,7 @@ export default function Signup() {
 
       if (enderecoError) {
 
-        console.log(
-          "Erro endereço:",
-          enderecoError
-        )
+        console.log(enderecoError)
 
         throw enderecoError
       }
@@ -325,13 +399,10 @@ export default function Signup() {
           idendereco:
             enderecoData.idendereco,
 
-          nome: nome,
-
-          usuario: usuario,
-
-          email: email,
-
-          senha: senha,
+          nome,
+          usuario,
+          email,
+          senha,
 
           biometriaativa: false
 
@@ -343,19 +414,12 @@ export default function Signup() {
 
       if (usuarioError) {
 
-        console.log(
-          "Erro usuário:",
-          usuarioError
-        )
+        console.log(usuarioError)
 
         throw usuarioError
       }
 
       setLoading(false)
-
-      /*
-        PERGUNTA BIOMETRIA
-      */
 
       Alert.alert(
 
@@ -366,19 +430,7 @@ export default function Signup() {
         [
 
           {
-            text: "Não",
-
-            style: "cancel",
-
-            onPress: () => {
-
-              setNome("")
-              setUsuario("")
-              setEmail("")
-              setSenha("")
-              setConfirmarSenha("")
-              setTipoUsuario("")
-            }
+            text: "Não"
           },
 
           {
@@ -389,13 +441,6 @@ export default function Signup() {
               await ativarBiometria(
                 usuarioData.idusuario
               )
-
-              setNome("")
-              setUsuario("")
-              setEmail("")
-              setSenha("")
-              setConfirmarSenha("")
-              setTipoUsuario("")
             }
           }
         ]
@@ -453,7 +498,6 @@ export default function Signup() {
               <Input
                 placeholder="Usuário"
                 value={usuario}
-                autoCapitalize="none"
                 onChangeText={setUsuario}
               />
 
@@ -461,8 +505,55 @@ export default function Signup() {
                 placeholder="E-mail"
                 value={email}
                 keyboardType="email-address"
-                autoCapitalize="none"
                 onChangeText={setEmail}
+              />
+
+              {/* CEP PRIMEIRO */}
+
+              <Input
+                placeholder="CEP"
+                keyboardType="numeric"
+                value={cep}
+                onChangeText={buscarCEP}
+              />
+
+              <Input
+                placeholder="Logradouro"
+                value={logradouro}
+                onChangeText={setLogradouro}
+              />
+
+              <Input
+                placeholder="Número"
+                value={numero}
+                keyboardType="numeric"
+                onChangeText={setNumero}
+              />
+
+              <Input
+                placeholder="Complemento"
+                value={complemento}
+                onChangeText={setComplemento}
+              />
+
+              <Input
+                placeholder="Bairro"
+                value={bairro}
+                onChangeText={setBairro}
+              />
+
+              {/* LOCALIZAÇÃO */}
+
+              <Input
+                placeholder="Latitude"
+                value={latitude}
+                editable={false}
+              />
+
+              <Input
+                placeholder="Longitude"
+                value={longitude}
+                editable={false}
               />
 
               {/* TIPO USUÁRIO */}
@@ -474,8 +565,6 @@ export default function Signup() {
                 </Text>
 
                 <View style={styles.tipoButtons}>
-
-                  {/* ADMIN */}
 
                   <TouchableOpacity
                     style={[
@@ -517,23 +606,18 @@ export default function Signup() {
 
                   </TouchableOpacity>
 
-                  {/* PLANTONISTA */}
-
                   <TouchableOpacity
                     style={[
 
                       styles.tipoButton,
 
-                      tipoUsuario ===
-                      "plantonista" &&
+                      tipoUsuario === "plantonista" &&
                       styles.tipoButtonActive
 
                     ]}
 
                     onPress={() =>
-                      setTipoUsuario(
-                        "plantonista"
-                      )
+                      setTipoUsuario("plantonista")
                     }
                   >
 
@@ -541,8 +625,7 @@ export default function Signup() {
                       name="medical-services"
                       size={20}
                       color={
-                        tipoUsuario ===
-                        "plantonista"
+                        tipoUsuario === "plantonista"
                           ? "#fff"
                           : "#2E86DE"
                       }
@@ -553,8 +636,7 @@ export default function Signup() {
 
                         styles.tipoButtonText,
 
-                        tipoUsuario ===
-                        "plantonista" &&
+                        tipoUsuario === "plantonista" &&
                         styles.tipoButtonTextActive
 
                       ]}
@@ -579,16 +661,12 @@ export default function Signup() {
                 placeholder="Confirmar senha"
                 value={confirmarSenha}
                 secureTextEntry
-                onChangeText={
-                  setConfirmarSenha
-                }
+                onChangeText={setConfirmarSenha}
               />
 
             </View>
 
           </View>
-
-          {/* BOTÃO */}
 
           <TouchableOpacity
             style={styles.botao}

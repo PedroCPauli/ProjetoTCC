@@ -20,236 +20,597 @@ import {
 import { supabase } from "../lib/supabase";
 
 export default function ConfigScreen() {
-  const [usuario, setUsuario] = useState({ nome: "", email: "" });
-  const [localizacao, setLocalizacao] = useState({ latitude: "-", longitude: "-" });
+
+  const [usuario, setUsuario] = useState<any>({});
+  const [endereco, setEndereco] = useState<any>({});
+
+  const [localizacao, setLocalizacao] = useState({
+    latitude: "-",
+    longitude: "-"
+  });
 
   const [registros, setRegistros] = useState<any[]>([]);
-  const [dataSelecionada, setDataSelecionada] = useState<Date | null>(null);
-  const [mostrarCalendario, setMostrarCalendario] = useState(false);
+
+  const [dataSelecionada, setDataSelecionada] =
+    useState<Date | null>(null);
+
+  const [mostrarCalendario, setMostrarCalendario] =
+    useState(false);
 
   useEffect(() => {
-    obterUsuarioLogado();
-    obterLocalizacao();
-    buscarRegistros();
+
+    carregarDados();
+
   }, []);
 
-  // =========================
-  // USUÁRIO
-  // =========================
+  // =====================================
+  // CARREGA DADOS
+  // =====================================
+
+  async function carregarDados() {
+
+    await obterUsuarioLogado();
+
+    await obterLocalizacao();
+
+    await buscarRegistros();
+  }
+
+  // =====================================
+  // USUÁRIO + ENDEREÇO
+  // =====================================
+
   async function obterUsuarioLogado() {
+
     try {
-      const usuarioStorage = await AsyncStorage.getItem("@medponto_usuario");
+
+      const usuarioStorage =
+        await AsyncStorage.getItem("@medponto_usuario");
 
       if (!usuarioStorage) {
-        Alert.alert("Erro", "Usuário não encontrado");
+
+        Alert.alert(
+          "Erro",
+          "Usuário não encontrado"
+        );
+
         return;
       }
 
-      const usuarioConvertido = JSON.parse(usuarioStorage);
+      const usuarioConvertido =
+        JSON.parse(usuarioStorage);
 
-      setUsuario({
-        nome: usuarioConvertido.nome || "",
-        email: usuarioConvertido.email || ""
-      });
+      const {
+        data,
+        error
+
+      } = await supabase
+
+        .from("usuario")
+
+        .select(`
+          *,
+          endereco (*)
+        `)
+
+        .eq(
+          "idusuario",
+          usuarioConvertido.idusuario
+        )
+
+        .single();
+
+      if (error) {
+
+        Alert.alert(
+          "Erro",
+          error.message
+        );
+
+        return;
+      }
+
+      setUsuario(data);
+
+      setEndereco(data.endereco);
 
     } catch {
-      Alert.alert("Erro", "Falha ao carregar usuário");
+
+      Alert.alert(
+        "Erro",
+        "Falha ao carregar usuário"
+      );
     }
   }
 
-  // =========================
+  // =====================================
   // LOCALIZAÇÃO
-  // =========================
-  async function obterLocalizacao() {
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
+  // =====================================
 
-      if (status !== 'granted') {
-        Alert.alert("Erro", "Permissão negada");
+  async function obterLocalizacao() {
+
+    try {
+
+      const { status } =
+        await Location.requestForegroundPermissionsAsync();
+
+      if (status !== "granted") {
+
+        Alert.alert(
+          "Erro",
+          "Permissão negada"
+        );
+
         return;
       }
 
-      const loc = await Location.getCurrentPositionAsync({});
+      const loc =
+        await Location.getCurrentPositionAsync({});
 
       setLocalizacao({
-        latitude: loc.coords.latitude.toFixed(5),
-        longitude: loc.coords.longitude.toFixed(5)
+
+        latitude:
+          loc.coords.latitude.toFixed(5),
+
+        longitude:
+          loc.coords.longitude.toFixed(5)
+
       });
 
     } catch {
-      Alert.alert("Erro", "Falha ao obter localização");
+
+      Alert.alert(
+        "Erro",
+        "Falha ao obter localização"
+      );
     }
   }
 
-  // =========================
-  // REGISTROS REAIS
-  // =========================
+  // =====================================
+  // BUSCAR REGISTROS
+  // =====================================
+
   async function buscarRegistros() {
+
     try {
-      const usuarioStorage = await AsyncStorage.getItem("@medponto_usuario");
+
+      const usuarioStorage =
+        await AsyncStorage.getItem("@medponto_usuario");
 
       if (!usuarioStorage) return;
 
-      const usuario = JSON.parse(usuarioStorage);
+      const usuario =
+        JSON.parse(usuarioStorage);
 
-      const { data, error } = await supabase
+      let query = supabase
+
         .from("ponto")
+
         .select("*")
-        .eq("idusuario", usuario.idusuario)
-        .order("data", { ascending: false });
+
+        .eq(
+          "idusuario",
+          usuario.idusuario
+        )
+
+        .order(
+          "data",
+          { ascending: false }
+        );
+
+      if (dataSelecionada) {
+
+        query = query.eq(
+          "data",
+          formatarData(dataSelecionada)
+        );
+      }
+
+      const {
+        data,
+        error
+
+      } = await query;
 
       if (error) {
-        Alert.alert("Erro", error.message);
+
+        Alert.alert(
+          "Erro",
+          error.message
+        );
+
         return;
       }
 
       setRegistros(data || []);
 
     } catch {
-      Alert.alert("Erro", "Falha ao buscar registros");
+
+      Alert.alert(
+        "Erro",
+        "Falha ao buscar registros"
+      );
     }
   }
 
-  // =========================
-  // DATA FORMAT
-  // =========================
+  // =====================================
+  // FORMATAR DATA
+  // =====================================
+
   function formatarData(data: Date) {
-    return data.toLocaleDateString("sv-SE");
+
+    return data
+      .toLocaleDateString("sv-SE");
   }
 
-  // =========================
-  // HORAS TRABALHADAS
-  // =========================
-  function calcularHoras(entrada: string, saida: string) {
-    if (!entrada || !saida) return "Em aberto";
+  // =====================================
+  // CALCULAR HORAS
+  // =====================================
 
-    const [h1, m1] = entrada.split(":").map(Number);
-    const [h2, m2] = saida.split(":").map(Number);
+  function calcularHoras(
+    entrada: string,
+    saida: string
+  ) {
 
-    const inicio = h1 * 60 + m1;
-    const fim = h2 * 60 + m2;
+    if (!entrada || !saida)
+      return "Em aberto";
 
-    const diff = fim - inicio;
+    const [h1, m1] =
+      entrada.split(":").map(Number);
 
-    if (diff <= 0) return "0h";
+    const [h2, m2] =
+      saida.split(":").map(Number);
 
-    const horas = Math.floor(diff / 60);
-    const minutos = diff % 60;
+    const inicio =
+      h1 * 60 + m1;
+
+    const fim =
+      h2 * 60 + m2;
+
+    const diff =
+      fim - inicio;
+
+    if (diff <= 0)
+      return "0h";
+
+    const horas =
+      Math.floor(diff / 60);
+
+    const minutos =
+      diff % 60;
 
     return `${horas}h ${minutos}m`;
   }
 
-  // =========================
-  // RELATÓRIO
-  // =========================
-  function gerarRelatorio() {
-    const dados = dataSelecionada
-      ? registros.filter(r => r.data === formatarData(dataSelecionada))
-      : registros;
+  // =====================================
+  // GERAR RELATÓRIO
+  // =====================================
 
-    if (dados.length === 0) {
-      Alert.alert("Erro", "Nenhum dado encontrado");
+  async function gerarRelatorio() {
+
+    await buscarRegistros();
+
+    if (registros.length === 0) {
+
+      Alert.alert(
+        "Erro",
+        "Nenhum registro encontrado"
+      );
+
       return;
     }
 
-    const texto = dados.map(r =>
-      `Data: ${r.data}\nHorário de entrada: ${r.horaentrada || "-"}\nHorário de saída: ${r.horasaida || "-"}\nHoras trabalhadas: ${calcularHoras(r.horaentrada, r.horasaida)}`
-    ).join("\n\n");
+    const texto = registros.map(r => `
 
-    Alert.alert("Relatório", texto);
+Data: ${r.data}
+
+Entrada: ${r.horaentrada || "-"}
+
+Saída: ${r.horasaida || "-"}
+
+Horas Trabalhadas:
+${calcularHoras(
+  r.horaentrada,
+  r.horasaida
+)}
+
+Endereço:
+${endereco.logradouro},
+${endereco.numero}
+
+Bairro:
+${endereco.bairro}
+
+CEP:
+${endereco.cep}
+
+    `).join("\n\n");
+
+    Alert.alert(
+      "Relatório",
+      texto
+    );
   }
 
-  // =========================
-  // PDF FUNCIONANDO
-  // =========================
-  async function exportarPDF() {
-    const dados = dataSelecionada
-      ? registros.filter(r => r.data === formatarData(dataSelecionada))
-      : registros;
+  // =====================================
+  // EXPORTAR PDF
+  // =====================================
 
-    if (dados.length === 0) {
-      Alert.alert("Erro", "Nenhum dado para exportar");
+  async function exportarPDF() {
+
+    await buscarRegistros();
+
+    if (registros.length === 0) {
+
+      Alert.alert(
+        "Erro",
+        "Nenhum dado encontrado"
+      );
+
       return;
     }
 
     const html = `
       <html>
-        <body>
+        <body style="font-family: Arial; padding:20px;">
+
           <h1>Relatório de Ponto</h1>
-          <hr/>
-          ${dados.map(r => `
+
+          <h3>Funcionário</h3>
+
+          <p>
+            <strong>Nome:</strong>
+            ${usuario.nome}
+          </p>
+
+          <p>
+            <strong>E-mail:</strong>
+            ${usuario.email}
+          </p>
+
+          <p>
+            <strong>Endereço:</strong>
+            ${endereco.logradouro},
+            ${endereco.numero}
+          </p>
+
+          <p>
+            <strong>Bairro:</strong>
+            ${endereco.bairro}
+          </p>
+
+          <p>
+            <strong>CEP:</strong>
+            ${endereco.cep}
+          </p>
+
+          <hr />
+
+          ${registros.map(r => `
+
+            <h3>Data: ${r.data}</h3>
+
             <p>
-              <strong>Data:</strong> ${r.data}<br/>
-              <strong>Entrada:</strong> ${r.horaentrada || "-"}<br/>
-              <strong>Saída:</strong> ${r.horasaida || "-"}<br/>
-              <strong>Total:</strong> ${calcularHoras(r.horaentrada, r.horasaida)}
+              <strong>Entrada:</strong>
+              ${r.horaentrada || "-"}
             </p>
-            <hr/>
+
+            <p>
+              <strong>Saída:</strong>
+              ${r.horasaida || "-"}
+            </p>
+
+            <p>
+              <strong>Horas Trabalhadas:</strong>
+              ${calcularHoras(
+                r.horaentrada,
+                r.horasaida
+              )}
+            </p>
+
+            <hr />
+
           `).join("")}
+
         </body>
       </html>
     `;
 
     try {
-      const { uri } = await Print.printToFileAsync({ html });
+
+      const { uri } =
+        await Print.printToFileAsync({
+          html
+        });
+
       await Sharing.shareAsync(uri);
-    } catch (err) {
-      console.log(err);
-      Alert.alert("Erro", "Falha ao gerar PDF");
+
+    } catch (error) {
+
+      console.log(error);
+
+      Alert.alert(
+        "Erro",
+        "Falha ao gerar PDF"
+      );
     }
   }
 
-  // =========================
-  // UI
-  // =========================
   return (
+
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+
+      <ScrollView
+        contentContainerStyle={styles.content}
+      >
+
+        {/* USUÁRIO */}
 
         <View style={styles.card}>
+
           <View style={styles.headerCard}>
-            <MaterialIcons name="person" size={24} color="#2563EB" />
-            <Text style={styles.titulo}>Dados do Usuário</Text>
+
+            <MaterialIcons
+              name="person"
+              size={24}
+              color="#2563EB"
+            />
+
+            <Text style={styles.titulo}>
+              Dados do Usuário
+            </Text>
+
           </View>
 
-          <Text style={styles.texto}>Nome: {usuario.nome}</Text>
-          <Text style={styles.texto}>E-mail: {usuario.email}</Text>
+          <Text style={styles.texto}>
+            Nome: {usuario.nome}
+          </Text>
+
+          <Text style={styles.texto}>
+            E-mail: {usuario.email}
+          </Text>
+
         </View>
 
+        {/* ENDEREÇO */}
+
         <View style={styles.card}>
+
           <View style={styles.headerCard}>
-            <MaterialIcons name="location-on" size={24} color="#2563EB" />
-            <Text style={styles.titulo}>Localização</Text>
+
+            <MaterialIcons
+              name="home"
+              size={24}
+              color="#2563EB"
+            />
+
+            <Text style={styles.titulo}>
+              Endereço Cadastrado
+            </Text>
+
           </View>
 
-          <Text style={styles.texto}>Latitude: {localizacao.latitude}</Text>
-          <Text style={styles.texto}>Longitude: {localizacao.longitude}</Text>
+          <Text style={styles.texto}>
+            Rua:
+            {` ${endereco.logradouro || "-"}`}
+          </Text>
+
+          <Text style={styles.texto}>
+            Número:
+            {` ${endereco.numero || "-"}`}
+          </Text>
+
+          <Text style={styles.texto}>
+            Bairro:
+            {` ${endereco.bairro || "-"}`}
+          </Text>
+
+          <Text style={styles.texto}>
+            CEP:
+            {` ${endereco.cep || "-"}`}
+          </Text>
+
         </View>
 
+        {/* LOCALIZAÇÃO */}
+
         <View style={styles.card}>
+
           <View style={styles.headerCard}>
-            <MaterialIcons name="calendar-month" size={24} color="#2563EB" />
-            <Text style={styles.titulo}>Relatório de Ponto</Text>
+
+            <MaterialIcons
+              name="location-on"
+              size={24}
+              color="#2563EB"
+            />
+
+            <Text style={styles.titulo}>
+              Localização Atual
+            </Text>
+
+          </View>
+
+          <Text style={styles.texto}>
+            Latitude:
+            {` ${localizacao.latitude}`}
+          </Text>
+
+          <Text style={styles.texto}>
+            Longitude:
+            {` ${localizacao.longitude}`}
+          </Text>
+
+        </View>
+
+        {/* RELATÓRIO */}
+
+        <View style={styles.card}>
+
+          <View style={styles.headerCard}>
+
+            <MaterialIcons
+              name="calendar-month"
+              size={24}
+              color="#2563EB"
+            />
+
+            <Text style={styles.titulo}>
+              Relatório de Ponto
+            </Text>
+
           </View>
 
           <TouchableOpacity
             style={styles.botao}
-            onPress={() => setMostrarCalendario(true)}
+            onPress={() =>
+              setMostrarCalendario(true)
+            }
           >
-            <MaterialIcons name="calendar-today" size={20} color="#fff" />
+
+            <MaterialIcons
+              name="calendar-today"
+              size={20}
+              color="#fff"
+            />
+
             <Text style={styles.botaoTexto}>
-              {dataSelecionada ? formatarData(dataSelecionada) : "Filtrar por data"}
+
+              {dataSelecionada
+
+                ? dataSelecionada
+                    .toLocaleDateString("pt-BR")
+
+                : "Filtrar por data"}
+
             </Text>
+
           </TouchableOpacity>
 
           {mostrarCalendario && (
+
             <DateTimePicker
-              value={dataSelecionada || new Date()}
+
+              value={
+                dataSelecionada ||
+                new Date()
+              }
+
               mode="date"
-              display={Platform.OS === "ios" ? "spinner" : "default"}
+
+              display={
+                Platform.OS === "ios"
+                  ? "spinner"
+                  : "default"
+              }
+
               onChange={(event, date) => {
+
                 setMostrarCalendario(false);
-                if (date) setDataSelecionada(date);
+
+                if (date) {
+
+                  setDataSelecionada(date);
+                }
               }}
             />
           )}
@@ -258,41 +619,104 @@ export default function ConfigScreen() {
             style={styles.botaoRelatorio}
             onPress={gerarRelatorio}
           >
-            <MaterialIcons name="description" size={20} color="#fff" />
-            <Text style={styles.botaoTexto}>Gerar Relatório</Text>
+
+            <MaterialIcons
+              name="description"
+              size={20}
+              color="#fff"
+            />
+
+            <Text style={styles.botaoTexto}>
+              Gerar Relatório
+            </Text>
+
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.botaoSecundario}
             onPress={exportarPDF}
           >
-            <MaterialIcons name="picture-as-pdf" size={20} color="#fff" />
-            <Text style={styles.botaoTexto}>Exportar PDF</Text>
+
+            <MaterialIcons
+              name="picture-as-pdf"
+              size={20}
+              color="#fff"
+            />
+
+            <Text style={styles.botaoTexto}>
+              Exportar PDF
+            </Text>
+
           </TouchableOpacity>
 
         </View>
 
       </ScrollView>
 
+      {/* MENU */}
+
       <View style={styles.menu}>
-        <TouchableOpacity style={styles.menuBotao} onPress={() => router.replace("/")}>
-          <MaterialIcons name="home" size={26} color="#555" />
-          <Text style={styles.menuTexto}>Início</Text>
+
+        <TouchableOpacity
+          style={styles.menuBotao}
+          onPress={() =>
+            router.replace("/")
+          }
+        >
+
+          <MaterialIcons
+            name="home"
+            size={26}
+            color="#555"
+          />
+
+          <Text style={styles.menuTexto}>
+            Início
+          </Text>
+
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuBotao} onPress={() => router.replace("/ponto")}>
-          <MaterialIcons name="schedule" size={26} color="#555" />
-          <Text style={styles.menuTexto}>Ponto</Text>
+        <TouchableOpacity
+          style={styles.menuBotao}
+          onPress={() =>
+            router.replace("/ponto")
+          }
+        >
+
+          <MaterialIcons
+            name="schedule"
+            size={26}
+            color="#555"
+          />
+
+          <Text style={styles.menuTexto}>
+            Ponto
+          </Text>
+
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.menuBotao}>
-          <MaterialIcons name="settings" size={26} color="#2563EB" />
-          <Text style={styles.menuTextoAtivo}>Config</Text>
+        <TouchableOpacity
+          style={styles.menuBotao}
+        >
+
+          <MaterialIcons
+            name="settings"
+            size={26}
+            color="#2563EB"
+          />
+
+          <Text style={styles.menuTextoAtivo}>
+            Config
+          </Text>
+
         </TouchableOpacity>
+
       </View>
+
     </View>
   );
 }
+
 const styles = StyleSheet.create({
 
   container: {
@@ -311,10 +735,17 @@ const styles = StyleSheet.create({
     padding: 20,
     borderRadius: 18,
     marginBottom: 16,
+
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
+
+    shadowOffset: {
+      width: 0,
+      height: 2
+    },
+
     shadowOpacity: 0.08,
     shadowRadius: 6,
+
     elevation: 3
   },
 
@@ -341,10 +772,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#2563EB",
     padding: 14,
     borderRadius: 12,
+
     flexDirection: "row",
+
     justifyContent: "center",
+
     alignItems: "center",
+
     gap: 8,
+
     marginTop: 10
   },
 
@@ -352,10 +788,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#1D4ED8",
     padding: 14,
     borderRadius: 12,
+
     flexDirection: "row",
+
     justifyContent: "center",
+
     alignItems: "center",
+
     gap: 8,
+
     marginTop: 10
   },
 
@@ -363,10 +804,15 @@ const styles = StyleSheet.create({
     backgroundColor: "#0F172A",
     padding: 14,
     borderRadius: 12,
+
     flexDirection: "row",
+
     justifyContent: "center",
+
     alignItems: "center",
+
     gap: 8,
+
     marginTop: 10
   },
 
@@ -402,4 +848,5 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontWeight: "700"
   }
+
 });

@@ -17,16 +17,20 @@ import {
 import { supabase } from "../lib/supabase";
 
 export default function PontoScreen() {
+
   const [dataAtual, setDataAtual] = useState("");
   const [horaAtual, setHoraAtual] = useState("");
   const [entrada, setEntrada] = useState("");
   const [saida, setSaida] = useState("");
   const [statusLocal, setStatusLocal] = useState("");
 
-  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const scaleAnim =
+    useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
+
     const atualizarHora = () => {
+
       const agora = new Date();
 
       setDataAtual(
@@ -43,12 +47,16 @@ export default function PontoScreen() {
     };
 
     atualizarHora();
-    const intervalo = setInterval(atualizarHora, 1000);
+
+    const intervalo =
+      setInterval(atualizarHora, 1000);
 
     return () => clearInterval(intervalo);
+
   }, []);
 
   const animatePressIn = () => {
+
     Animated.spring(scaleAnim, {
       toValue: 0.95,
       useNativeDriver: true,
@@ -56,124 +64,394 @@ export default function PontoScreen() {
   };
 
   const animatePressOut = () => {
+
     Animated.spring(scaleAnim, {
       toValue: 1,
       useNativeDriver: true,
     }).start();
   };
 
-  const baterPonto = async () => {
-    try {
-      let { status } = await Location.requestForegroundPermissionsAsync();
+  function calcularDistancia(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ) {
 
-      if (status !== "granted") {
-        Alert.alert("Erro", "Permissão de localização negada");
-        return;
-      }
+    const R = 6371e3;
 
-      const agora = new Date();
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
 
-      // ✅ FORMATO CORRETO PADRÃO BANCO
-      const data = agora.toLocaleDateString("sv-SE"); // YYYY-MM-DD
+    const Δφ =
+      (lat2 - lat1) * Math.PI / 180;
 
-      const hora = agora.toLocaleTimeString("pt-BR", {
+    const Δλ =
+      (lon2 - lon1) * Math.PI / 180;
+
+    const a =
+      Math.sin(Δφ / 2) *
+      Math.sin(Δφ / 2) +
+
+      Math.cos(φ1) *
+      Math.cos(φ2) *
+
+      Math.sin(Δλ / 2) *
+      Math.sin(Δλ / 2);
+
+    const c =
+      2 * Math.atan2(
+        Math.sqrt(a),
+        Math.sqrt(1 - a)
+      );
+
+    return R * c;
+  }
+
+ async function baterPonto() {
+
+  try {
+
+    /*
+      PERMISSÃO
+    */
+
+    const { status } =
+      await Location
+        .requestForegroundPermissionsAsync();
+
+    if (status !== "granted") {
+
+      Alert.alert(
+        "Erro",
+        "Permissão de localização negada"
+      );
+
+      return;
+    }
+
+    /*
+      LOCALIZAÇÃO ATUAL
+    */
+
+    const localAtual =
+      await Location.getCurrentPositionAsync({
+        accuracy:
+          Location.Accuracy.High
+      });
+
+    /*
+      USUÁRIO LOGADO
+    */
+
+    const userStorage =
+      await AsyncStorage.getItem(
+        "@medponto_usuario"
+      );
+
+    if (!userStorage) {
+
+      Alert.alert(
+        "Erro",
+        "Usuário não encontrado"
+      );
+
+      return;
+    }
+
+    const usuario =
+      JSON.parse(userStorage);
+
+    /*
+      VALIDA USUÁRIO
+    */
+
+    if (!usuario?.idusuario) {
+
+      Alert.alert(
+        "Erro",
+        "ID usuário inválido"
+      );
+
+      return;
+    }
+
+    /*
+      BUSCA ENDEREÇO
+    */
+
+    const {
+      data: endereco,
+      error: enderecoError
+    } = await supabase
+
+      .from("endereco")
+
+      .select("*")
+
+      .eq(
+        "idendereco",
+        usuario.idendereco
+      )
+
+      .single();
+
+    if (enderecoError || !endereco) {
+
+      console.log(enderecoError);
+
+      Alert.alert(
+        "Erro",
+        "Endereço não encontrado"
+      );
+
+      return;
+    }
+
+    /*
+      VALIDA COORDENADAS
+    */
+
+    if (
+      !endereco.latitude ||
+      !endereco.longitude
+    ) {
+
+      Alert.alert(
+        "Erro",
+        "Endereço sem localização cadastrada"
+      );
+
+      return;
+    }
+
+    /*
+      DISTÂNCIA
+    */
+
+    const distancia =
+      calcularDistancia(
+        localAtual.coords.latitude,
+        localAtual.coords.longitude,
+        Number(endereco.latitude),
+        Number(endereco.longitude)
+      );
+
+    /*
+      LIMITE
+    */
+
+    if (distancia > 150) {
+
+      Alert.alert(
+        "Localização inválida",
+        `Você está a ${Math.round(distancia)}m do local permitido`
+      );
+
+      return;
+    }
+
+    /*
+      DATA/HORA
+    */
+
+    const agora = new Date();
+
+    const data =
+      agora.toLocaleDateString("sv-SE");
+
+    const hora =
+      agora.toLocaleTimeString("pt-BR", {
         timeZone: "America/Sao_Paulo"
       });
 
-      const userStorage = await AsyncStorage.getItem("@medponto_usuario");
+    /*
+      BUSCA PONTO
+    */
 
-      if (!userStorage) {
-        Alert.alert("Erro", "Usuário não encontrado");
-        return;
-      }
+    const {
+      data: pontoExistente,
+      error: selectError
+    } = await supabase
 
-      const usuario = JSON.parse(userStorage);
+      .from("ponto")
 
-      if (!usuario?.idusuario) {
-        Alert.alert("Erro", "ID do usuário inválido");
-        return;
-      }
+      .select("*")
 
-      // 🔥 pega ponto do dia (apenas aberto)
-      const { data: pontoExistente, error: selectError } = await supabase
+      .eq(
+        "idusuario",
+        usuario.idusuario
+      )
+
+      .eq(
+        "data",
+        data
+      )
+
+      .maybeSingle();
+
+    if (selectError) {
+
+      console.log(selectError);
+
+      Alert.alert(
+        "Erro",
+        selectError.message
+      );
+
+      return;
+    }
+
+    /*
+      ENTRADA
+    */
+
+    if (!pontoExistente) {
+
+      const {
+        error
+      } = await supabase
+
         .from("ponto")
-        .select("*")
-        .eq("idusuario", usuario.idusuario)
-        .eq("data", data)
-        .maybeSingle();
 
-      if (selectError) {
-        Alert.alert("Erro", selectError.message);
-        return;
-      }
+        .insert([
+          {
+            idusuario:
+              usuario.idusuario,
 
-      // =========================
-      // 🟢 ENTRADA
-      // =========================
-      if (!pontoExistente) {
-        const { error } = await supabase
-          .from("ponto")
-          .insert([
-            {
-              idusuario: usuario.idusuario,
-              idhospital: usuario.idhospital || 1,
-              data,
-              horaentrada: hora,
-              horasaida: null,
-              validacaobiometrica: false,
-              validacaolocalizacao: true
-            }
-          ]);
+            /*
+              CORREÇÃO AQUI
+            */
 
-        if (error) {
-          Alert.alert("Erro", error.message);
-          return;
-        }
+            idhospital:
+              usuario.idhospital || 1,
 
-        setEntrada(hora);
-        setStatusLocal("Entrada registrada com sucesso");
-        return;
-      }
+            data: data,
 
-      // =========================
-      // 🔴 SAÍDA (somente se ainda não tem)
-      // =========================
-      if (pontoExistente.horasaida) {
-        Alert.alert("Aviso", "Ponto já finalizado hoje");
-        return;
-      }
+            horaentrada: hora,
 
-      const { error } = await supabase
-        .from("ponto")
-        .update({
-          horasaida: hora
-        })
-        .eq("idponto", pontoExistente.idponto);
+            horasaida: null,
+
+            validacaobiometrica: false,
+
+            validacaolocalizacao: true
+          }
+        ]);
 
       if (error) {
-        Alert.alert("Erro", error.message);
+
+        console.log(error);
+
+        Alert.alert(
+          "Erro",
+          error.message
+        );
+
         return;
       }
 
-      setSaida(hora);
-      setStatusLocal("Saída registrada com sucesso");
+      setEntrada(hora);
 
-    } catch (err) {
-      console.log(err);
-      Alert.alert("Erro", "Erro inesperado");
+      setStatusLocal(
+        "Entrada registrada com sucesso"
+      );
+
+      Alert.alert(
+        "Sucesso",
+        "Entrada registrada"
+      );
+
+      return;
     }
-  };
+
+    /*
+      SAÍDA
+    */
+
+    if (pontoExistente.horasaida) {
+
+      Alert.alert(
+        "Aviso",
+        "Ponto já finalizado hoje"
+      );
+
+      return;
+    }
+
+    const {
+      error: updateError
+    } = await supabase
+
+      .from("ponto")
+
+      .update({
+        horasaida: hora
+      })
+
+      .eq(
+        "idponto",
+        pontoExistente.idponto
+      );
+
+    if (updateError) {
+
+      console.log(updateError);
+
+      Alert.alert(
+        "Erro",
+        updateError.message
+      );
+
+      return;
+    }
+
+    setSaida(hora);
+
+    setStatusLocal(
+      "Saída registrada com sucesso"
+    );
+
+    Alert.alert(
+      "Sucesso",
+      "Saída registrada"
+    );
+
+  } catch (err: any) {
+
+    console.log(
+      "ERRO COMPLETO:",
+      err
+    );
+
+    Alert.alert(
+      "Erro inesperado",
+      err?.message || "Erro ao bater ponto"
+    );
+  }
+}
 
   return (
-    <View style={styles.container}>
-      <View style={styles.card}>
-        <Text style={styles.titulo}>Registro de Ponto</Text>
 
-        <Text style={styles.data}>📅 {dataAtual}</Text>
-        <Text style={styles.hora}>{horaAtual}</Text>
+    <View style={styles.container}>
+
+      <View style={styles.card}>
+
+        <Text style={styles.titulo}>
+          Registro de Ponto
+        </Text>
+
+        <Text style={styles.data}>
+          📅 {dataAtual}
+        </Text>
+
+        <Text style={styles.hora}>
+          {horaAtual}
+        </Text>
 
         {statusLocal !== "" && (
-          <Text style={styles.status}>{statusLocal}</Text>
+          <Text style={styles.status}>
+            {statusLocal}
+          </Text>
         )}
 
         <TouchableWithoutFeedback
@@ -181,37 +459,92 @@ export default function PontoScreen() {
           onPressOut={animatePressOut}
           onPress={baterPonto}
         >
-          <Animated.View style={[styles.botao, { transform: [{ scale: scaleAnim }] }]}>
-            <MaterialIcons name="fingerprint" size={26} color="#fff" />
-            <Text style={styles.textoBotao}>Bater Ponto</Text>
+
+          <Animated.View
+            style={[
+              styles.botao,
+              {
+                transform: [
+                  { scale: scaleAnim }
+                ]
+              }
+            ]}
+          >
+
+            <MaterialIcons
+              name="fingerprint"
+              size={26}
+              color="#fff"
+            />
+
+            <Text style={styles.textoBotao}>
+              Bater Ponto
+            </Text>
+
           </Animated.View>
+
         </TouchableWithoutFeedback>
 
         {entrada !== "" && (
-          <Text style={styles.registro}>✅ Entrada: {entrada}</Text>
+          <Text style={styles.registro}>
+            ✅ Entrada: {entrada}
+          </Text>
         )}
 
         {saida !== "" && (
-          <Text style={styles.registro}>❌ Saída: {saida}</Text>
+          <Text style={styles.registro}>
+            ❌ Saída: {saida}
+          </Text>
         )}
+
       </View>
 
       <View style={styles.menu}>
-        <TouchableOpacity onPress={() => router.replace('/')}>
-          <MaterialIcons name="home" size={28} color="#555" />
+
+        <TouchableOpacity
+          onPress={() =>
+            router.replace('/')
+          }
+        >
+
+          <MaterialIcons
+            name="home"
+            size={28}
+            color="#555"
+          />
+
         </TouchableOpacity>
 
         <TouchableOpacity>
-          <MaterialIcons name="schedule" size={28} color="#2E86DE" />
+
+          <MaterialIcons
+            name="schedule"
+            size={28}
+            color="#2E86DE"
+          />
+
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.replace('/config')}>
-          <MaterialIcons name="settings" size={28} color="#555" />
+        <TouchableOpacity
+          onPress={() =>
+            router.replace('/config')
+          }
+        >
+
+          <MaterialIcons
+            name="settings"
+            size={28}
+            color="#555"
+          />
+
         </TouchableOpacity>
+
       </View>
+
     </View>
   );
 }
+
 const styles = StyleSheet.create({
 
   container: {
@@ -230,7 +563,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     elevation: 5,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {
+      width: 0,
+      height: 2
+    },
     shadowOpacity: 0.1,
     shadowRadius: 4
   },
