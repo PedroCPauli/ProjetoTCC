@@ -1,4 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Print from 'expo-print';
 import { router } from 'expo-router';
@@ -21,7 +22,8 @@ import { supabase } from '../lib/supabase';
 export default function AdminScreen() {
 
   const [usuarios, setUsuarios] = useState<any[]>([]);
-  const [usuarioSelecionado, setUsuarioSelecionado] = useState<any>(null);
+  const [usuarioSelecionado, setUsuarioSelecionado] =
+    useState<any>(null);
 
   const [pontos, setPontos] = useState<any[]>([]);
 
@@ -31,29 +33,172 @@ export default function AdminScreen() {
   const [mostrarCalendario, setMostrarCalendario] =
     useState(false);
 
+  const [hospitalAdmin, setHospitalAdmin] =
+    useState<any>(null);
+
   useEffect(() => {
-    buscarUsuarios();
+
+    carregarAdmin();
+
   }, []);
 
-  async function buscarUsuarios() {
+  /*
+    ============================
+    CARREGA ADMIN
+    ============================
+  */
 
-    const { data, error } = await supabase
-      .from("usuario")
-      .select("*")
-      .order("nome");
+  async function carregarAdmin() {
 
-    if (error) {
+    try {
+
+      const storage =
+        await AsyncStorage.getItem(
+          "@medponto_usuario"
+        );
+
+      if (!storage) {
+
+        Alert.alert(
+          "Erro",
+          "Administrador não encontrado"
+        );
+
+        return;
+      }
+
+      const adminStorage =
+        JSON.parse(storage);
+
+      /*
+        BUSCA ADMIN COMPLETO
+      */
+
+      const {
+        data,
+        error
+
+      } = await supabase
+
+        .from("usuario")
+
+        .select(`
+          *,
+          hospital:idhospital (
+            nome
+          )
+        `)
+
+        .eq(
+          "idusuario",
+          adminStorage.idusuario
+        )
+
+        .single();
+
+      if (error) {
+
+        console.log(error);
+
+        Alert.alert(
+          "Erro",
+          error.message
+        );
+
+        return;
+      }
+
+      /*
+        SETA ADMIN
+      */
+
+      setHospitalAdmin(data);
+
+      /*
+        BUSCA FUNCIONÁRIOS
+      */
+
+      buscarUsuarios(
+        data.idhospital
+      );
+
+    } catch (error) {
+
+      console.log(error);
 
       Alert.alert(
         "Erro",
-        error.message
+        "Falha ao carregar admin"
       );
-
-      return;
     }
-
-    setUsuarios(data || []);
   }
+
+  /*
+    ============================
+    BUSCA USUÁRIOS HOSPITAL
+    ============================
+  */
+
+  async function buscarUsuarios(
+    idhospital: number
+  ) {
+
+    try {
+
+      const {
+        data,
+        error
+
+      } = await supabase
+
+        .from("usuario")
+
+        .select(`
+          *,
+          hospital:idhospital (
+            nome
+          )
+        `)
+
+        .eq(
+          "idhospital",
+          idhospital
+        )
+
+        .order(
+          "nome"
+        );
+
+      if (error) {
+
+        console.log(error);
+
+        Alert.alert(
+          "Erro",
+          error.message
+        );
+
+        return;
+      }
+
+      setUsuarios(data || []);
+
+    } catch (error) {
+
+      console.log(error);
+
+      Alert.alert(
+        "Erro",
+        "Falha ao buscar usuários"
+      );
+    }
+  }
+
+  /*
+    ============================
+    BUSCA PONTOS
+    ============================
+  */
 
   async function buscarPontos(
     idusuario: number
@@ -61,17 +206,30 @@ export default function AdminScreen() {
 
     try {
 
-      let query = supabase
+      let query =
+        supabase
 
-        .from("ponto")
+          .from("ponto")
 
-        .select("*")
+          .select(`
+            *,
+            usuario (
+              nome,
+              email
+            )
+          `)
 
-        .eq("idusuario", idusuario)
+          .eq(
+            "idusuario",
+            idusuario
+          )
 
-        .order("data", {
-          ascending: false
-        });
+          .order(
+            "data",
+            {
+              ascending: false
+            }
+          );
 
       /*
         FILTRO DATA
@@ -126,6 +284,12 @@ export default function AdminScreen() {
     }
   }
 
+  /*
+    ============================
+    FORMATAR DATA
+    ============================
+  */
+
   function formatarData(
     data: Date
   ) {
@@ -134,6 +298,12 @@ export default function AdminScreen() {
       "pt-BR"
     );
   }
+
+  /*
+    ============================
+    CALCULAR HORAS
+    ============================
+  */
 
   function calcularHoras(
     entrada: string,
@@ -159,6 +329,10 @@ export default function AdminScreen() {
     const diferenca =
       fim - inicio;
 
+    if (diferenca <= 0) {
+      return "0h";
+    }
+
     const horas =
       Math.floor(diferenca / 60);
 
@@ -167,6 +341,12 @@ export default function AdminScreen() {
 
     return `${horas}h ${minutos}m`;
   }
+
+  /*
+    ============================
+    GERAR RELATÓRIO
+    ============================
+  */
 
   function gerarRelatorio() {
 
@@ -180,27 +360,43 @@ export default function AdminScreen() {
       return;
     }
 
-    const texto = pontos.map(p =>
+    const texto =
+      pontos.map(p =>
 
-      `Data: ${p.data}
+        `Hospital:
+${hospitalAdmin?.hospital?.nome || "-"}
 
-Entrada: ${p.horaentrada || "-"}
+Funcionário:
+${usuarioSelecionado?.nome}
 
-Saída: ${p.horasaida || "-"}
+Data:
+${p.data}
 
-Total Trabalhado:
+Entrada:
+${p.horaentrada || "-"}
+
+Saída:
+${p.horasaida || "-"}
+
+Horas Trabalhadas:
 ${calcularHoras(
-        p.horaentrada,
-        p.horasaida
-      )}`
+  p.horaentrada,
+  p.horasaida
+)}`
 
-    ).join("\n\n");
+      ).join("\n\n");
 
     Alert.alert(
       "Relatório",
       texto
     );
   }
+
+  /*
+    ============================
+    EXPORTAR PDF
+    ============================
+  */
 
   async function exportarPDF() {
 
@@ -227,6 +423,12 @@ ${calcularHoras(
           </h1>
 
           <h3>
+            Hospital:
+            ${hospitalAdmin?.hospital?.nome || "-"}
+          </h3>
+
+          <h3>
+            Funcionário:
             ${usuarioSelecionado?.nome}
           </h3>
 
@@ -302,6 +504,26 @@ ${calcularHoras(
           Painel Administrativo
         </Text>
 
+        {/* HOSPITAL */}
+
+        <View style={styles.hospitalCard}>
+
+          <MaterialIcons
+            name="local-hospital"
+            size={24}
+            color="#2563EB"
+          />
+
+          <Text style={styles.hospitalTexto}>
+
+            Hospital:
+            {" "}
+            {hospitalAdmin?.hospital?.nome || "-"}
+
+          </Text>
+
+        </View>
+
         {/* VOLTAR */}
 
         <TouchableOpacity
@@ -324,7 +546,7 @@ ${calcularHoras(
         </TouchableOpacity>
 
         <Text style={styles.subtitle}>
-          Usuários cadastrados
+          Funcionários do Hospital
         </Text>
 
         <FlatList
@@ -385,8 +607,6 @@ ${calcularHoras(
               Relatórios de{" "}
               {usuarioSelecionado.nome}
             </Text>
-
-            {/* DATA */}
 
             <TouchableOpacity
 
@@ -449,8 +669,6 @@ ${calcularHoras(
               />
             )}
 
-            {/* FILTRAR */}
-
             <TouchableOpacity
 
               style={styles.botao}
@@ -474,8 +692,6 @@ ${calcularHoras(
 
             </TouchableOpacity>
 
-            {/* RELATÓRIO */}
-
             <TouchableOpacity
               style={styles.botao}
               onPress={gerarRelatorio}
@@ -492,8 +708,6 @@ ${calcularHoras(
               </Text>
 
             </TouchableOpacity>
-
-            {/* PDF */}
 
             <TouchableOpacity
               style={styles.botaoPdf}
@@ -545,6 +759,30 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#334155',
     marginBottom: 14
+  },
+
+  hospitalCard: {
+    backgroundColor: "#fff",
+
+    padding: 16,
+
+    borderRadius: 16,
+
+    flexDirection: "row",
+
+    alignItems: "center",
+
+    gap: 10,
+
+    marginBottom: 16,
+
+    elevation: 3
+  },
+
+  hospitalTexto: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#0F172A"
   },
 
   botaoVoltar: {

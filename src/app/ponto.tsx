@@ -20,9 +20,12 @@ export default function PontoScreen() {
 
   const [dataAtual, setDataAtual] = useState("");
   const [horaAtual, setHoraAtual] = useState("");
+
   const [entrada, setEntrada] = useState("");
   const [saida, setSaida] = useState("");
-  const [statusLocal, setStatusLocal] = useState("");
+
+  const [statusLocal, setStatusLocal] =
+    useState("");
 
   const scaleAnim =
     useRef(new Animated.Value(1)).current;
@@ -34,26 +37,44 @@ export default function PontoScreen() {
       const agora = new Date();
 
       setDataAtual(
-        agora.toLocaleDateString("pt-BR", {
-          timeZone: "America/Sao_Paulo"
-        })
+        agora.toLocaleDateString(
+          "pt-BR",
+          {
+            timeZone:
+              "America/Sao_Paulo"
+          }
+        )
       );
 
       setHoraAtual(
-        agora.toLocaleTimeString("pt-BR", {
-          timeZone: "America/Sao_Paulo"
-        })
+        agora.toLocaleTimeString(
+          "pt-BR",
+          {
+            timeZone:
+              "America/Sao_Paulo"
+          }
+        )
       );
     };
 
     atualizarHora();
 
     const intervalo =
-      setInterval(atualizarHora, 1000);
+      setInterval(
+        atualizarHora,
+        1000
+      );
 
-    return () => clearInterval(intervalo);
+    return () =>
+      clearInterval(intervalo);
 
   }, []);
+
+  /*
+    =========================
+    ANIMAÇÃO
+    =========================
+  */
 
   const animatePressIn = () => {
 
@@ -71,6 +92,12 @@ export default function PontoScreen() {
     }).start();
   };
 
+  /*
+    =========================
+    CALCULAR DISTÂNCIA
+    =========================
+  */
+
   function calcularDistancia(
     lat1: number,
     lon1: number,
@@ -80,16 +107,22 @@ export default function PontoScreen() {
 
     const R = 6371e3;
 
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
+    const φ1 =
+      lat1 * Math.PI / 180;
+
+    const φ2 =
+      lat2 * Math.PI / 180;
 
     const Δφ =
-      (lat2 - lat1) * Math.PI / 180;
+      (lat2 - lat1) *
+      Math.PI / 180;
 
     const Δλ =
-      (lon2 - lon1) * Math.PI / 180;
+      (lon2 - lon1) *
+      Math.PI / 180;
 
     const a =
+
       Math.sin(Δφ / 2) *
       Math.sin(Δφ / 2) +
 
@@ -108,327 +141,374 @@ export default function PontoScreen() {
     return R * c;
   }
 
- async function baterPonto() {
+  /*
+    =========================
+    BATER PONTO
+    =========================
+  */
 
-  try {
+  async function baterPonto() {
 
-    /*
-      PERMISSÃO
-    */
+    try {
 
-    const { status } =
-      await Location
-        .requestForegroundPermissionsAsync();
+      /*
+        PERMISSÃO GPS
+      */
 
-    if (status !== "granted") {
+      const { status } =
+        await Location
+          .requestForegroundPermissionsAsync();
 
-      Alert.alert(
-        "Erro",
-        "Permissão de localização negada"
-      );
-
-      return;
-    }
-
-    /*
-      LOCALIZAÇÃO ATUAL
-    */
-
-    const localAtual =
-      await Location.getCurrentPositionAsync({
-        accuracy:
-          Location.Accuracy.High
-      });
-
-    /*
-      USUÁRIO LOGADO
-    */
-
-    const userStorage =
-      await AsyncStorage.getItem(
-        "@medponto_usuario"
-      );
-
-    if (!userStorage) {
-
-      Alert.alert(
-        "Erro",
-        "Usuário não encontrado"
-      );
-
-      return;
-    }
-
-    const usuario =
-      JSON.parse(userStorage);
-
-    /*
-      VALIDA USUÁRIO
-    */
-
-    if (!usuario?.idusuario) {
-
-      Alert.alert(
-        "Erro",
-        "ID usuário inválido"
-      );
-
-      return;
-    }
-
-    /*
-      BUSCA ENDEREÇO
-    */
-
-    const {
-      data: endereco,
-      error: enderecoError
-    } = await supabase
-
-      .from("endereco")
-
-      .select("*")
-
-      .eq(
-        "idendereco",
-        usuario.idendereco
-      )
-
-      .single();
-
-    if (enderecoError || !endereco) {
-
-      console.log(enderecoError);
-
-      Alert.alert(
-        "Erro",
-        "Endereço não encontrado"
-      );
-
-      return;
-    }
-
-    /*
-      VALIDA COORDENADAS
-    */
-
-    if (
-      !endereco.latitude ||
-      !endereco.longitude
-    ) {
-
-      Alert.alert(
-        "Erro",
-        "Endereço sem localização cadastrada"
-      );
-
-      return;
-    }
-
-    /*
-      DISTÂNCIA
-    */
-
-    const distancia =
-      calcularDistancia(
-        localAtual.coords.latitude,
-        localAtual.coords.longitude,
-        Number(endereco.latitude),
-        Number(endereco.longitude)
-      );
-
-    /*
-      LIMITE
-    */
-
-    if (distancia > 150) {
-
-      Alert.alert(
-        "Localização inválida",
-        `Você está a ${Math.round(distancia)}m do local permitido`
-      );
-
-      return;
-    }
-
-    /*
-      DATA/HORA
-    */
-
-    const agora = new Date();
-
-    const data =
-      agora.toLocaleDateString("sv-SE");
-
-    const hora =
-      agora.toLocaleTimeString("pt-BR", {
-        timeZone: "America/Sao_Paulo"
-      });
-
-    /*
-      BUSCA PONTO
-    */
-
-    const {
-      data: pontoExistente,
-      error: selectError
-    } = await supabase
-
-      .from("ponto")
-
-      .select("*")
-
-      .eq(
-        "idusuario",
-        usuario.idusuario
-      )
-
-      .eq(
-        "data",
-        data
-      )
-
-      .maybeSingle();
-
-    if (selectError) {
-
-      console.log(selectError);
-
-      Alert.alert(
-        "Erro",
-        selectError.message
-      );
-
-      return;
-    }
-
-    /*
-      ENTRADA
-    */
-
-    if (!pontoExistente) {
-
-      const {
-        error
-      } = await supabase
-
-        .from("ponto")
-
-        .insert([
-          {
-            idusuario:
-              usuario.idusuario,
-
-            /*
-              CORREÇÃO AQUI
-            */
-
-            idhospital:
-              usuario.idhospital || 1,
-
-            data: data,
-
-            horaentrada: hora,
-
-            horasaida: null,
-
-            validacaobiometrica: false,
-
-            validacaolocalizacao: true
-          }
-        ]);
-
-      if (error) {
-
-        console.log(error);
+      if (status !== "granted") {
 
         Alert.alert(
           "Erro",
-          error.message
+          "Permissão de localização negada"
         );
 
         return;
       }
 
-      setEntrada(hora);
+      /*
+        LOCALIZAÇÃO ATUAL
+      */
+
+      const localAtual =
+        await Location
+          .getCurrentPositionAsync({
+
+            accuracy:
+              Location.Accuracy.High
+
+          });
+
+      /*
+        USUÁRIO LOGADO
+      */
+
+      const usuarioStorage =
+        await AsyncStorage.getItem(
+          "@medponto_usuario"
+        );
+
+      if (!usuarioStorage) {
+
+        Alert.alert(
+          "Erro",
+          "Usuário não encontrado"
+        );
+
+        return;
+      }
+
+      const usuario =
+        JSON.parse(usuarioStorage);
+
+      /*
+        VALIDA HOSPITAL
+      */
+
+      if (!usuario.idhospital) {
+
+        Alert.alert(
+          "Erro",
+          "Usuário sem hospital cadastrado"
+        );
+
+        return;
+      }
+
+      /*
+        BUSCA ENDEREÇO
+      */
+
+      const {
+        data: endereco,
+        error: enderecoError
+
+      } = await supabase
+
+        .from("endereco")
+
+        .select("*")
+
+        .eq(
+          "idendereco",
+          usuario.idendereco
+        )
+
+        .single();
+
+      if (
+        enderecoError ||
+        !endereco
+      ) {
+
+        console.log(
+          enderecoError
+        );
+
+        Alert.alert(
+          "Erro",
+          "Endereço não encontrado"
+        );
+
+        return;
+      }
+
+      /*
+        VALIDA LAT/LONG
+      */
+
+      if (
+        !endereco.latitude ||
+        !endereco.longitude
+      ) {
+
+        Alert.alert(
+          "Erro",
+          "Endereço sem localização"
+        );
+
+        return;
+      }
+
+      /*
+        DISTÂNCIA
+      */
+
+      const distancia =
+        calcularDistancia(
+
+          Number(
+            localAtual.coords.latitude
+          ),
+
+          Number(
+            localAtual.coords.longitude
+          ),
+
+          Number(
+            endereco.latitude
+          ),
+
+          Number(
+            endereco.longitude
+          )
+        );
+
+      /*
+        LIMITE
+      */
+
+      if (distancia > 150) {
+
+        Alert.alert(
+          "Localização inválida",
+          `Você está a ${Math.round(distancia)}m do local permitido`
+        );
+
+        return;
+      }
+
+      /*
+        DATA / HORA
+      */
+
+      const agora = new Date();
+
+      const data =
+        agora.toLocaleDateString(
+          "sv-SE"
+        );
+
+      const hora =
+        agora.toLocaleTimeString(
+          "pt-BR",
+          {
+            timeZone:
+              "America/Sao_Paulo"
+          }
+        );
+
+      /*
+        BUSCA PONTO
+      */
+
+      const {
+        data: pontoExistente,
+        error: pontoError
+
+      } = await supabase
+
+        .from("ponto")
+
+        .select("*")
+
+        .eq(
+          "idusuario",
+          usuario.idusuario
+        )
+
+        .eq(
+          "data",
+          data
+        )
+
+        .maybeSingle();
+
+      if (pontoError) {
+
+        console.log(
+          pontoError
+        );
+
+        Alert.alert(
+          "Erro",
+          pontoError.message
+        );
+
+        return;
+      }
+
+      /*
+        ENTRADA
+      */
+
+      if (!pontoExistente) {
+
+        const {
+          error: insertError
+        } = await supabase
+
+          .from("ponto")
+
+          .insert([
+            {
+
+              idusuario:
+                usuario.idusuario,
+
+              idhospital:
+                usuario.idhospital,
+
+              data: data,
+
+              horaentrada:
+                hora,
+
+              horasaida:
+                null,
+
+              validacaobiometrica:
+                usuario.biometriaativa || false,
+
+              validacaolocalizacao:
+                true
+            }
+          ]);
+
+        if (insertError) {
+
+          console.log(
+            insertError
+          );
+
+          Alert.alert(
+            "Erro",
+            insertError.message
+          );
+
+          return;
+        }
+
+        setEntrada(hora);
+
+        setStatusLocal(
+          "Entrada registrada com sucesso"
+        );
+
+        Alert.alert(
+          "Sucesso",
+          "Entrada registrada"
+        );
+
+        return;
+      }
+
+      /*
+        SAÍDA
+      */
+
+      if (
+        pontoExistente.horasaida
+      ) {
+
+        Alert.alert(
+          "Aviso",
+          "Ponto já finalizado hoje"
+        );
+
+        return;
+      }
+
+      const {
+        error: updateError
+      } = await supabase
+
+        .from("ponto")
+
+        .update({
+
+          horasaida:
+            hora
+
+        })
+
+        .eq(
+          "idponto",
+          pontoExistente.idponto
+        );
+
+      if (updateError) {
+
+        console.log(
+          updateError
+        );
+
+        Alert.alert(
+          "Erro",
+          updateError.message
+        );
+
+        return;
+      }
+
+      setSaida(hora);
 
       setStatusLocal(
-        "Entrada registrada com sucesso"
+        "Saída registrada com sucesso"
       );
 
       Alert.alert(
         "Sucesso",
-        "Entrada registrada"
+        "Saída registrada"
       );
 
-      return;
-    }
+    } catch (err: any) {
 
-    /*
-      SAÍDA
-    */
-
-    if (pontoExistente.horasaida) {
+      console.log(
+        "ERRO COMPLETO:",
+        err
+      );
 
       Alert.alert(
-        "Aviso",
-        "Ponto já finalizado hoje"
+        "Erro inesperado",
+        err?.message ||
+        "Erro ao bater ponto"
       );
-
-      return;
     }
-
-    const {
-      error: updateError
-    } = await supabase
-
-      .from("ponto")
-
-      .update({
-        horasaida: hora
-      })
-
-      .eq(
-        "idponto",
-        pontoExistente.idponto
-      );
-
-    if (updateError) {
-
-      console.log(updateError);
-
-      Alert.alert(
-        "Erro",
-        updateError.message
-      );
-
-      return;
-    }
-
-    setSaida(hora);
-
-    setStatusLocal(
-      "Saída registrada com sucesso"
-    );
-
-    Alert.alert(
-      "Sucesso",
-      "Saída registrada"
-    );
-
-  } catch (err: any) {
-
-    console.log(
-      "ERRO COMPLETO:",
-      err
-    );
-
-    Alert.alert(
-      "Erro inesperado",
-      err?.message || "Erro ao bater ponto"
-    );
   }
-}
 
   return (
 
@@ -449,6 +529,7 @@ export default function PontoScreen() {
         </Text>
 
         {statusLocal !== "" && (
+
           <Text style={styles.status}>
             {statusLocal}
           </Text>
@@ -465,7 +546,9 @@ export default function PontoScreen() {
               styles.botao,
               {
                 transform: [
-                  { scale: scaleAnim }
+                  {
+                    scale: scaleAnim
+                  }
                 ]
               }
             ]}
@@ -486,12 +569,14 @@ export default function PontoScreen() {
         </TouchableWithoutFeedback>
 
         {entrada !== "" && (
+
           <Text style={styles.registro}>
             ✅ Entrada: {entrada}
           </Text>
         )}
 
         {saida !== "" && (
+
           <Text style={styles.registro}>
             ❌ Saída: {saida}
           </Text>
@@ -503,7 +588,7 @@ export default function PontoScreen() {
 
         <TouchableOpacity
           onPress={() =>
-            router.replace('/')
+            router.replace("/")
           }
         >
 
@@ -527,7 +612,7 @@ export default function PontoScreen() {
 
         <TouchableOpacity
           onPress={() =>
-            router.replace('/config')
+            router.replace("/config")
           }
         >
 
@@ -593,7 +678,8 @@ const styles = StyleSheet.create({
   status: {
     color: '#27AE60',
     marginBottom: 20,
-    fontWeight: 'bold'
+    fontWeight: 'bold',
+    textAlign: 'center'
   },
 
   botao: {

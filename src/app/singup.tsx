@@ -1,8 +1,9 @@
 import { MaterialIcons } from '@expo/vector-icons'
+import { Picker } from '@react-native-picker/picker'
 import * as LocalAuthentication from 'expo-local-authentication'
 import * as Location from 'expo-location'
 import { Link } from "expo-router"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import {
   Alert,
@@ -20,24 +21,69 @@ import { supabase } from "../lib/supabase"
 
 export default function Signup() {
 
-  const [nome, setNome] = useState("")
-  const [usuario, setUsuario] = useState("")
-  const [email, setEmail] = useState("")
+  const [nome, setNome] = useState<string>("")
+  const [usuario, setUsuario] = useState<string>("")
+  const [email, setEmail] = useState<string>("")
 
-  const [cep, setCep] = useState("")
-  const [logradouro, setLogradouro] = useState("")
-  const [numero, setNumero] = useState("")
-  const [complemento, setComplemento] = useState("")
-  const [bairro, setBairro] = useState("")
+  const [cep, setCep] = useState<string>("")
+  const [logradouro, setLogradouro] = useState<string>("")
+  const [numero, setNumero] = useState<string>("")
+  const [complemento, setComplemento] = useState<string>("")
+  const [bairro, setBairro] = useState<string>("")
 
-  const [latitude, setLatitude] = useState("")
-  const [longitude, setLongitude] = useState("")
+  const [latitude, setLatitude] = useState<string>("")
+  const [longitude, setLongitude] = useState<string>("")
 
-  const [senha, setSenha] = useState("")
-  const [confirmarSenha, setConfirmarSenha] = useState("")
+  const [senha, setSenha] = useState<string>("")
+  const [confirmarSenha, setConfirmarSenha] = useState<string>("")
 
-  const [tipoUsuario, setTipoUsuario] = useState("")
-  const [loading, setLoading] = useState(false)
+  const [tipoUsuario, setTipoUsuario] = useState<string>("")
+
+  const [hospitais, setHospitais] = useState<any[]>([])
+  const [hospitalSelecionado, setHospitalSelecionado] = useState<string>("")
+
+  const [loading, setLoading] = useState<boolean>(false)
+
+  /*
+    ============================
+    BUSCAR HOSPITAIS
+    ============================
+  */
+
+  async function buscarHospitais() {
+
+    try {
+
+      const {
+        data,
+        error
+      } = await supabase
+
+        .from("hospital")
+
+        .select("*")
+
+        .order("nome")
+
+      if (error) {
+
+        console.log(error)
+        return
+      }
+
+      setHospitais(data || [])
+
+    } catch (error) {
+
+      console.log(error)
+    }
+  }
+
+  useEffect(() => {
+
+    buscarHospitais()
+
+  }, [])
 
   /*
     ============================
@@ -220,10 +266,6 @@ export default function Signup() {
         return null
       }
 
-      /*
-        FORÇA GPS ALTA PRECISÃO
-      */
-
       const location =
         await Location
           .getCurrentPositionAsync({
@@ -246,13 +288,9 @@ export default function Signup() {
 
       console.log(error)
 
-      /*
-        REMOVE O ERRO DO EMULADOR
-      */
-
       Alert.alert(
         "Erro",
-        "Não foi possível obter localização.\n\nNo Android Studio:\n\nClique nos 3 pontos do emulador > Location > informe Latitude e Longitude válidas."
+        "Não foi possível obter localização"
       )
 
       return null
@@ -297,6 +335,16 @@ export default function Signup() {
       return
     }
 
+    if (!hospitalSelecionado) {
+
+      Alert.alert(
+        "Erro",
+        "Selecione o hospital"
+      )
+
+      return
+    }
+
     if (senha !== confirmarSenha) {
 
       Alert.alert(
@@ -312,7 +360,7 @@ export default function Signup() {
       setLoading(true)
 
       /*
-        PEGA LOCALIZAÇÃO
+        LOCALIZAÇÃO
       */
 
       const localizacao =
@@ -376,7 +424,6 @@ export default function Signup() {
       if (enderecoError) {
 
         console.log(enderecoError)
-
         throw enderecoError
       }
 
@@ -395,6 +442,9 @@ export default function Signup() {
 
           idtipousuario:
             idTipoUsuario,
+
+          idhospital:
+            Number(hospitalSelecionado),
 
           idendereco:
             enderecoData.idendereco,
@@ -415,7 +465,6 @@ export default function Signup() {
       if (usuarioError) {
 
         console.log(usuarioError)
-
         throw usuarioError
       }
 
@@ -508,7 +557,41 @@ export default function Signup() {
                 onChangeText={setEmail}
               />
 
-              {/* CEP PRIMEIRO */}
+              {/* HOSPITAL */}
+
+              <Text style={styles.tipoLabel}>
+                Hospital
+              </Text>
+
+              <View style={styles.pickerContainer}>
+
+                <Picker
+                  selectedValue={hospitalSelecionado}
+                  onValueChange={(itemValue: string) =>
+                    setHospitalSelecionado(itemValue)
+                  }
+                >
+
+                  <Picker.Item
+                    label="Selecione o hospital"
+                    value=""
+                  />
+
+                  {hospitais.map((hospital) => (
+
+                    <Picker.Item
+                      key={hospital.idhospital}
+                      label={hospital.nome}
+                      value={String(hospital.idhospital)}
+                    />
+
+                  ))}
+
+                </Picker>
+
+              </View>
+
+              {/* CEP */}
 
               <Input
                 placeholder="CEP"
@@ -755,6 +838,14 @@ const styles = StyleSheet.create({
 
   form: {
     gap: 14
+  },
+
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#fff"
   },
 
   tipoContainer: {

@@ -23,6 +23,7 @@ export default function ConfigScreen() {
 
   const [usuario, setUsuario] = useState<any>({});
   const [endereco, setEndereco] = useState<any>({});
+  const [hospital, setHospital] = useState<any>({});
 
   const [localizacao, setLocalizacao] = useState({
     latitude: "-",
@@ -57,7 +58,7 @@ export default function ConfigScreen() {
   }
 
   // =====================================
-  // USUÁRIO + ENDEREÇO
+  // USUÁRIO + ENDEREÇO + HOSPITAL
   // =====================================
 
   async function obterUsuarioLogado() {
@@ -80,9 +81,13 @@ export default function ConfigScreen() {
       const usuarioConvertido =
         JSON.parse(usuarioStorage);
 
+      /*
+        BUSCA USUÁRIO
+      */
+
       const {
-        data,
-        error
+        data: usuarioData,
+        error: usuarioError
 
       } = await supabase
 
@@ -100,21 +105,66 @@ export default function ConfigScreen() {
 
         .single();
 
-      if (error) {
+      if (usuarioError) {
+
+        console.log(usuarioError);
 
         Alert.alert(
           "Erro",
-          error.message
+          usuarioError.message
         );
 
         return;
       }
 
-      setUsuario(data);
+      /*
+        BUSCA HOSPITAL
+      */
 
-      setEndereco(data.endereco);
+      let hospitalData = {};
 
-    } catch {
+      if (usuarioData?.idhospital) {
+
+        const {
+          data: hospitalBusca,
+          error: hospitalError
+
+        } = await supabase
+
+          .from("hospital")
+
+          .select("*")
+
+          .eq(
+            "idhospital",
+            usuarioData.idhospital
+          )
+
+          .single();
+
+        if (!hospitalError) {
+
+          hospitalData = hospitalBusca || {};
+        }
+      }
+
+      /*
+        SETA DADOS
+      */
+
+      setUsuario(usuarioData || {});
+
+      setEndereco(
+        usuarioData?.endereco || {}
+      );
+
+      setHospital(
+        hospitalData || {}
+      );
+
+    } catch (error) {
+
+      console.log(error);
 
       Alert.alert(
         "Erro",
@@ -145,7 +195,9 @@ export default function ConfigScreen() {
       }
 
       const loc =
-        await Location.getCurrentPositionAsync({});
+        await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High
+        });
 
       setLocalizacao({
 
@@ -179,7 +231,7 @@ export default function ConfigScreen() {
 
       if (!usuarioStorage) return;
 
-      const usuario =
+      const usuarioStorageConvertido =
         JSON.parse(usuarioStorage);
 
       let query = supabase
@@ -190,7 +242,7 @@ export default function ConfigScreen() {
 
         .eq(
           "idusuario",
-          usuario.idusuario
+          usuarioStorageConvertido.idusuario
         )
 
         .order(
@@ -198,12 +250,33 @@ export default function ConfigScreen() {
           { ascending: false }
         );
 
+      /*
+        FILTRO POR DATA
+      */
+
       if (dataSelecionada) {
 
-        query = query.eq(
-          "data",
-          formatarData(dataSelecionada)
-        );
+        const ano =
+          dataSelecionada.getFullYear();
+
+        const mes =
+          String(
+            dataSelecionada.getMonth() + 1
+          ).padStart(2, "0");
+
+        const dia =
+          String(
+            dataSelecionada.getDate()
+          ).padStart(2, "0");
+
+        const dataFormatada =
+          `${ano}-${mes}-${dia}`;
+
+        query =
+          query.eq(
+            "data",
+            dataFormatada
+          );
       }
 
       const {
@@ -224,7 +297,9 @@ export default function ConfigScreen() {
 
       setRegistros(data || []);
 
-    } catch {
+    } catch (error) {
+
+      console.log(error);
 
       Alert.alert(
         "Erro",
@@ -237,10 +312,31 @@ export default function ConfigScreen() {
   // FORMATAR DATA
   // =====================================
 
-  function formatarData(data: Date) {
+  function formatarDataBanco(data: Date) {
 
-    return data
-      .toLocaleDateString("sv-SE");
+    const ano =
+      data.getFullYear();
+
+    const mes =
+      String(
+        data.getMonth() + 1
+      ).padStart(2, "0");
+
+    const dia =
+      String(
+        data.getDate()
+      ).padStart(2, "0");
+
+    return `${ano}-${mes}-${dia}`;
+  }
+
+  function formatarDataBrasil(data: string) {
+
+    if (!data) return "-";
+
+    const partes = data.split("-");
+
+    return `${partes[2]}/${partes[1]}/${partes[0]}`;
   }
 
   // =====================================
@@ -290,23 +386,28 @@ export default function ConfigScreen() {
 
     await buscarRegistros();
 
-    if (registros.length === 0) {
+    setTimeout(() => {
 
-      Alert.alert(
-        "Erro",
-        "Nenhum registro encontrado"
-      );
+      if (registros.length === 0) {
 
-      return;
-    }
+        Alert.alert(
+          "Erro",
+          "Nenhum registro encontrado"
+        );
 
-    const texto = registros.map(r => `
+        return;
+      }
 
-Data: ${r.data}
+      const texto = registros.map(r => `
 
-Entrada: ${r.horaentrada || "-"}
+Data:
+${formatarDataBrasil(r.data)}
 
-Saída: ${r.horasaida || "-"}
+Entrada:
+${r.horaentrada || "-"}
+
+Saída:
+${r.horasaida || "-"}
 
 Horas Trabalhadas:
 ${calcularHoras(
@@ -314,22 +415,27 @@ ${calcularHoras(
   r.horasaida
 )}
 
+Hospital:
+${hospital.nome || "-"}
+
 Endereço:
-${endereco.logradouro},
-${endereco.numero}
+${endereco.logradouro || "-"},
+${endereco.numero || "-"}
 
 Bairro:
-${endereco.bairro}
+${endereco.bairro || "-"}
 
 CEP:
-${endereco.cep}
+${endereco.cep || "-"}
 
-    `).join("\n\n");
+      `).join("\n\n");
 
-    Alert.alert(
-      "Relatório",
-      texto
-    );
+      Alert.alert(
+        "Relatório",
+        texto
+      );
+
+    }, 500);
   }
 
   // =====================================
@@ -340,100 +446,129 @@ ${endereco.cep}
 
     await buscarRegistros();
 
-    if (registros.length === 0) {
+    setTimeout(async () => {
 
-      Alert.alert(
-        "Erro",
-        "Nenhum dado encontrado"
-      );
+      if (registros.length === 0) {
 
-      return;
-    }
+        Alert.alert(
+          "Erro",
+          "Nenhum dado encontrado"
+        );
 
-    const html = `
-      <html>
-        <body style="font-family: Arial; padding:20px;">
+        return;
+      }
 
-          <h1>Relatório de Ponto</h1>
+      const html = `
+        <html>
 
-          <h3>Funcionário</h3>
+          <body style="
+            font-family: Arial;
+            padding: 20px;
+          ">
 
-          <p>
-            <strong>Nome:</strong>
-            ${usuario.nome}
-          </p>
+            <h1>
+              Relatório de Ponto
+            </h1>
 
-          <p>
-            <strong>E-mail:</strong>
-            ${usuario.email}
-          </p>
+            <hr />
 
-          <p>
-            <strong>Endereço:</strong>
-            ${endereco.logradouro},
-            ${endereco.numero}
-          </p>
-
-          <p>
-            <strong>Bairro:</strong>
-            ${endereco.bairro}
-          </p>
-
-          <p>
-            <strong>CEP:</strong>
-            ${endereco.cep}
-          </p>
-
-          <hr />
-
-          ${registros.map(r => `
-
-            <h3>Data: ${r.data}</h3>
+            <h2>
+              Dados do Funcionário
+            </h2>
 
             <p>
-              <strong>Entrada:</strong>
-              ${r.horaentrada || "-"}
+              <strong>Nome:</strong>
+              ${usuario.nome || "-"}
             </p>
 
             <p>
-              <strong>Saída:</strong>
-              ${r.horasaida || "-"}
+              <strong>E-mail:</strong>
+              ${usuario.email || "-"}
             </p>
 
             <p>
-              <strong>Horas Trabalhadas:</strong>
-              ${calcularHoras(
-                r.horaentrada,
-                r.horasaida
-              )}
+              <strong>Hospital:</strong>
+              ${hospital.nome || "-"}
+            </p>
+
+            <p>
+              <strong>Endereço:</strong>
+              ${endereco.logradouro || "-"},
+              ${endereco.numero || "-"}
+            </p>
+
+            <p>
+              <strong>Bairro:</strong>
+              ${endereco.bairro || "-"}
+            </p>
+
+            <p>
+              <strong>CEP:</strong>
+              ${endereco.cep || "-"}
             </p>
 
             <hr />
 
-          `).join("")}
+            ${registros.map(r => `
 
-        </body>
-      </html>
-    `;
+              <div style="
+                margin-bottom: 20px;
+              ">
 
-    try {
+                <h3>
+                  Data:
+                  ${formatarDataBrasil(r.data)}
+                </h3>
 
-      const { uri } =
-        await Print.printToFileAsync({
-          html
-        });
+                <p>
+                  <strong>Entrada:</strong>
+                  ${r.horaentrada || "-"}
+                </p>
 
-      await Sharing.shareAsync(uri);
+                <p>
+                  <strong>Saída:</strong>
+                  ${r.horasaida || "-"}
+                </p>
 
-    } catch (error) {
+                <p>
+                  <strong>Total:</strong>
+                  ${calcularHoras(
+                    r.horaentrada,
+                    r.horasaida
+                  )}
+                </p>
 
-      console.log(error);
+              </div>
 
-      Alert.alert(
-        "Erro",
-        "Falha ao gerar PDF"
-      );
-    }
+              <hr />
+
+            `).join("")}
+
+          </body>
+
+        </html>
+      `;
+
+      try {
+
+        const { uri } =
+          await Print.printToFileAsync({
+            html
+          });
+
+        await Sharing.shareAsync(uri);
+
+      } catch (error) {
+
+        console.log(error);
+
+        Alert.alert(
+          "Erro",
+          "Falha ao gerar PDF"
+        );
+      }
+
+    }, 500);
   }
 
   return (
@@ -443,8 +578,6 @@ ${endereco.cep}
       <ScrollView
         contentContainerStyle={styles.content}
       >
-
-        {/* USUÁRIO */}
 
         <View style={styles.card}>
 
@@ -463,16 +596,19 @@ ${endereco.cep}
           </View>
 
           <Text style={styles.texto}>
-            Nome: {usuario.nome}
+            Nome: {usuario.nome || "-"}
           </Text>
 
           <Text style={styles.texto}>
-            E-mail: {usuario.email}
+            E-mail: {usuario.email || "-"}
+          </Text>
+
+          <Text style={styles.texto}>
+            Hospital:
+            {` ${hospital.nome || "-"}`}
           </Text>
 
         </View>
-
-        {/* ENDEREÇO */}
 
         <View style={styles.card}>
 
@@ -512,8 +648,6 @@ ${endereco.cep}
 
         </View>
 
-        {/* LOCALIZAÇÃO */}
-
         <View style={styles.card}>
 
           <View style={styles.headerCard}>
@@ -541,8 +675,6 @@ ${endereco.cep}
           </Text>
 
         </View>
-
-        {/* RELATÓRIO */}
 
         <View style={styles.card}>
 
@@ -652,8 +784,6 @@ ${endereco.cep}
         </View>
 
       </ScrollView>
-
-      {/* MENU */}
 
       <View style={styles.menu}>
 
