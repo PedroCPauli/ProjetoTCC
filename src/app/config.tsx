@@ -81,10 +81,6 @@ export default function ConfigScreen() {
       const usuarioConvertido =
         JSON.parse(usuarioStorage);
 
-      /*
-        BUSCA USUÁRIO
-      */
-
       const {
         data: usuarioData,
         error: usuarioError
@@ -117,10 +113,6 @@ export default function ConfigScreen() {
         return;
       }
 
-      /*
-        BUSCA HOSPITAL
-      */
-
       let hospitalData = {};
 
       if (usuarioData?.idhospital) {
@@ -144,15 +136,14 @@ export default function ConfigScreen() {
 
         if (!hospitalError) {
 
-          hospitalData = hospitalBusca || {};
+          hospitalData =
+            hospitalBusca || {};
         }
       }
 
-      /*
-        SETA DADOS
-      */
-
-      setUsuario(usuarioData || {});
+      setUsuario(
+        usuarioData || {}
+      );
 
       setEndereco(
         usuarioData?.endereco || {}
@@ -219,6 +210,42 @@ export default function ConfigScreen() {
   }
 
   // =====================================
+  // FORMATAR DATA BANCO
+  // =====================================
+
+  function formatarDataBanco(data: Date) {
+
+    const ano =
+      data.getFullYear();
+
+    const mes =
+      String(
+        data.getMonth() + 1
+      ).padStart(2, "0");
+
+    const dia =
+      String(
+        data.getDate()
+      ).padStart(2, "0");
+
+    return `${ano}-${mes}-${dia}`;
+  }
+
+  // =====================================
+  // FORMATAR DATA BRASIL
+  // =====================================
+
+  function formatarDataBrasil(data: string) {
+
+    if (!data) return "-";
+
+    const partes =
+      data.split("-");
+
+    return `${partes[2]}/${partes[1]}/${partes[0]}`;
+  }
+
+  // =====================================
   // BUSCAR REGISTROS
   // =====================================
 
@@ -229,48 +256,41 @@ export default function ConfigScreen() {
       const usuarioStorage =
         await AsyncStorage.getItem("@medponto_usuario");
 
-      if (!usuarioStorage) return;
+      if (!usuarioStorage)
+        return [];
 
-      const usuarioStorageConvertido =
+      const usuarioConvertido =
         JSON.parse(usuarioStorage);
 
-      let query = supabase
+      let query =
+        supabase
 
-        .from("ponto")
+          .from("ponto")
 
-        .select("*")
+          .select("*")
 
-        .eq(
-          "idusuario",
-          usuarioStorageConvertido.idusuario
-        )
+          .eq(
+            "idusuario",
+            usuarioConvertido.idusuario
+          )
 
-        .order(
-          "data",
-          { ascending: false }
-        );
+          .order(
+            "data",
+            {
+              ascending: false
+            }
+          );
 
       /*
-        FILTRO POR DATA
+        FILTRO CORRETO DE DATA
       */
 
       if (dataSelecionada) {
 
-        const ano =
-          dataSelecionada.getFullYear();
-
-        const mes =
-          String(
-            dataSelecionada.getMonth() + 1
-          ).padStart(2, "0");
-
-        const dia =
-          String(
-            dataSelecionada.getDate()
-          ).padStart(2, "0");
-
         const dataFormatada =
-          `${ano}-${mes}-${dia}`;
+          formatarDataBanco(
+            dataSelecionada
+          );
 
         query =
           query.eq(
@@ -292,10 +312,14 @@ export default function ConfigScreen() {
           error.message
         );
 
-        return;
+        return [];
       }
 
-      setRegistros(data || []);
+      setRegistros(
+        data || []
+      );
+
+      return data || [];
 
     } catch (error) {
 
@@ -305,38 +329,9 @@ export default function ConfigScreen() {
         "Erro",
         "Falha ao buscar registros"
       );
+
+      return [];
     }
-  }
-
-  // =====================================
-  // FORMATAR DATA
-  // =====================================
-
-  function formatarDataBanco(data: Date) {
-
-    const ano =
-      data.getFullYear();
-
-    const mes =
-      String(
-        data.getMonth() + 1
-      ).padStart(2, "0");
-
-    const dia =
-      String(
-        data.getDate()
-      ).padStart(2, "0");
-
-    return `${ano}-${mes}-${dia}`;
-  }
-
-  function formatarDataBrasil(data: string) {
-
-    if (!data) return "-";
-
-    const partes = data.split("-");
-
-    return `${partes[2]}/${partes[1]}/${partes[0]}`;
   }
 
   // =====================================
@@ -384,21 +379,21 @@ export default function ConfigScreen() {
 
   async function gerarRelatorio() {
 
-    await buscarRegistros();
+    const dados =
+      await buscarRegistros();
 
-    setTimeout(() => {
+    if (!dados || dados.length === 0) {
 
-      if (registros.length === 0) {
+      Alert.alert(
+        "Erro",
+        "Nenhum registro encontrado"
+      );
 
-        Alert.alert(
-          "Erro",
-          "Nenhum registro encontrado"
-        );
+      return;
+    }
 
-        return;
-      }
-
-      const texto = registros.map(r => `
+    const texto =
+      dados.map((r: any) => `
 
 Data:
 ${formatarDataBrasil(r.data)}
@@ -430,12 +425,10 @@ ${endereco.cep || "-"}
 
       `).join("\n\n");
 
-      Alert.alert(
-        "Relatório",
-        texto
-      );
-
-    }, 500);
+    Alert.alert(
+      "Relatório",
+      texto
+    );
   }
 
   // =====================================
@@ -444,131 +437,128 @@ ${endereco.cep || "-"}
 
   async function exportarPDF() {
 
-    await buscarRegistros();
+    const dados =
+      await buscarRegistros();
 
-    setTimeout(async () => {
+    if (!dados || dados.length === 0) {
 
-      if (registros.length === 0) {
+      Alert.alert(
+        "Erro",
+        "Nenhum dado encontrado"
+      );
 
-        Alert.alert(
-          "Erro",
-          "Nenhum dado encontrado"
-        );
+      return;
+    }
 
-        return;
-      }
+    const html = `
+      <html>
 
-      const html = `
-        <html>
+        <body style="
+          font-family: Arial;
+          padding: 20px;
+        ">
 
-          <body style="
-            font-family: Arial;
-            padding: 20px;
-          ">
+          <h1>
+            Relatório de Ponto
+          </h1>
 
-            <h1>
-              Relatório de Ponto
-            </h1>
+          <hr />
+
+          <h2>
+            Dados do Funcionário
+          </h2>
+
+          <p>
+            <strong>Nome:</strong>
+            ${usuario.nome || "-"}
+          </p>
+
+          <p>
+            <strong>E-mail:</strong>
+            ${usuario.email || "-"}
+          </p>
+
+          <p>
+            <strong>Hospital:</strong>
+            ${hospital.nome || "-"}
+          </p>
+
+          <p>
+            <strong>Endereço:</strong>
+            ${endereco.logradouro || "-"},
+            ${endereco.numero || "-"}
+          </p>
+
+          <p>
+            <strong>Bairro:</strong>
+            ${endereco.bairro || "-"}
+          </p>
+
+          <p>
+            <strong>CEP:</strong>
+            ${endereco.cep || "-"}
+          </p>
+
+          <hr />
+
+          ${dados.map((r: any) => `
+
+            <div style="
+              margin-bottom: 20px;
+            ">
+
+              <h3>
+                Data:
+                ${formatarDataBrasil(r.data)}
+              </h3>
+
+              <p>
+                <strong>Entrada:</strong>
+                ${r.horaentrada || "-"}
+              </p>
+
+              <p>
+                <strong>Saída:</strong>
+                ${r.horasaida || "-"}
+              </p>
+
+              <p>
+                <strong>Total:</strong>
+                ${calcularHoras(
+                  r.horaentrada,
+                  r.horasaida
+                )}
+              </p>
+
+            </div>
 
             <hr />
 
-            <h2>
-              Dados do Funcionário
-            </h2>
+          `).join("")}
 
-            <p>
-              <strong>Nome:</strong>
-              ${usuario.nome || "-"}
-            </p>
+        </body>
 
-            <p>
-              <strong>E-mail:</strong>
-              ${usuario.email || "-"}
-            </p>
+      </html>
+    `;
 
-            <p>
-              <strong>Hospital:</strong>
-              ${hospital.nome || "-"}
-            </p>
+    try {
 
-            <p>
-              <strong>Endereço:</strong>
-              ${endereco.logradouro || "-"},
-              ${endereco.numero || "-"}
-            </p>
+      const { uri } =
+        await Print.printToFileAsync({
+          html
+        });
 
-            <p>
-              <strong>Bairro:</strong>
-              ${endereco.bairro || "-"}
-            </p>
+      await Sharing.shareAsync(uri);
 
-            <p>
-              <strong>CEP:</strong>
-              ${endereco.cep || "-"}
-            </p>
+    } catch (error) {
 
-            <hr />
+      console.log(error);
 
-            ${registros.map(r => `
-
-              <div style="
-                margin-bottom: 20px;
-              ">
-
-                <h3>
-                  Data:
-                  ${formatarDataBrasil(r.data)}
-                </h3>
-
-                <p>
-                  <strong>Entrada:</strong>
-                  ${r.horaentrada || "-"}
-                </p>
-
-                <p>
-                  <strong>Saída:</strong>
-                  ${r.horasaida || "-"}
-                </p>
-
-                <p>
-                  <strong>Total:</strong>
-                  ${calcularHoras(
-                    r.horaentrada,
-                    r.horasaida
-                  )}
-                </p>
-
-              </div>
-
-              <hr />
-
-            `).join("")}
-
-          </body>
-
-        </html>
-      `;
-
-      try {
-
-        const { uri } =
-          await Print.printToFileAsync({
-            html
-          });
-
-        await Sharing.shareAsync(uri);
-
-      } catch (error) {
-
-        console.log(error);
-
-        Alert.alert(
-          "Erro",
-          "Falha ao gerar PDF"
-        );
-      }
-
-    }, 500);
+      Alert.alert(
+        "Erro",
+        "Falha ao gerar PDF"
+      );
+    }
   }
 
   return (
@@ -578,6 +568,8 @@ ${endereco.cep || "-"}
       <ScrollView
         contentContainerStyle={styles.content}
       >
+
+        {/* USUÁRIO */}
 
         <View style={styles.card}>
 
@@ -604,11 +596,12 @@ ${endereco.cep || "-"}
           </Text>
 
           <Text style={styles.texto}>
-            Hospital:
-            {` ${hospital.nome || "-"}`}
+            Hospital: {hospital.nome || "-"}
           </Text>
 
         </View>
+
+        {/* ENDEREÇO */}
 
         <View style={styles.card}>
 
@@ -627,26 +620,24 @@ ${endereco.cep || "-"}
           </View>
 
           <Text style={styles.texto}>
-            Rua:
-            {` ${endereco.logradouro || "-"}`}
+            Rua: {endereco.logradouro || "-"}
           </Text>
 
           <Text style={styles.texto}>
-            Número:
-            {` ${endereco.numero || "-"}`}
+            Número: {endereco.numero || "-"}
           </Text>
 
           <Text style={styles.texto}>
-            Bairro:
-            {` ${endereco.bairro || "-"}`}
+            Bairro: {endereco.bairro || "-"}
           </Text>
 
           <Text style={styles.texto}>
-            CEP:
-            {` ${endereco.cep || "-"}`}
+            CEP: {endereco.cep || "-"}
           </Text>
 
         </View>
+
+        {/* LOCALIZAÇÃO */}
 
         <View style={styles.card}>
 
@@ -665,16 +656,16 @@ ${endereco.cep || "-"}
           </View>
 
           <Text style={styles.texto}>
-            Latitude:
-            {` ${localizacao.latitude}`}
+            Latitude: {localizacao.latitude}
           </Text>
 
           <Text style={styles.texto}>
-            Longitude:
-            {` ${localizacao.longitude}`}
+            Longitude: {localizacao.longitude}
           </Text>
 
         </View>
+
+        {/* RELATÓRIO */}
 
         <View style={styles.card}>
 
@@ -709,8 +700,7 @@ ${endereco.cep || "-"}
 
               {dataSelecionada
 
-                ? dataSelecionada
-                    .toLocaleDateString("pt-BR")
+                ? dataSelecionada.toLocaleDateString("pt-BR")
 
                 : "Filtrar por data"}
 
@@ -741,7 +731,21 @@ ${endereco.cep || "-"}
 
                 if (date) {
 
-                  setDataSelecionada(date);
+                  /*
+                    CORREÇÃO DO FUSO HORÁRIO
+                  */
+
+                  const dataCorrigida =
+                    new Date(
+                      date.getTime() +
+                      Math.abs(
+                        date.getTimezoneOffset() * 60000
+                      )
+                    );
+
+                  setDataSelecionada(
+                    dataCorrigida
+                  );
                 }
               }}
             />
@@ -784,6 +788,8 @@ ${endereco.cep || "-"}
         </View>
 
       </ScrollView>
+
+      {/* MENU */}
 
       <View style={styles.menu}>
 
