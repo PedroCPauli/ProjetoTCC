@@ -249,12 +249,16 @@ export default function ConfigScreen() {
   // BUSCAR REGISTROS
   // =====================================
 
-  async function buscarRegistros() {
+  async function buscarRegistros(
+    dataFiltro?: Date | null
+  ) {
 
     try {
 
       const usuarioStorage =
-        await AsyncStorage.getItem("@medponto_usuario");
+        await AsyncStorage.getItem(
+          "@medponto_usuario"
+        );
 
       if (!usuarioStorage)
         return [];
@@ -282,15 +286,20 @@ export default function ConfigScreen() {
           );
 
       /*
-        FILTRO CORRETO DE DATA
+        FILTRO DE DATA
       */
 
-      if (dataSelecionada) {
+      if (dataFiltro) {
 
         const dataFormatada =
           formatarDataBanco(
-            dataSelecionada
+            dataFiltro
           );
+
+        console.log(
+          "DATA FILTRO:",
+          dataFormatada
+        );
 
         query =
           query.eq(
@@ -306,6 +315,8 @@ export default function ConfigScreen() {
       } = await query;
 
       if (error) {
+
+        console.log(error);
 
         Alert.alert(
           "Erro",
@@ -380,7 +391,9 @@ export default function ConfigScreen() {
   async function gerarRelatorio() {
 
     const dados =
-      await buscarRegistros();
+      await buscarRegistros(
+        dataSelecionada
+      );
 
     if (!dados || dados.length === 0) {
 
@@ -438,7 +451,9 @@ ${endereco.cep || "-"}
   async function exportarPDF() {
 
     const dados =
-      await buscarRegistros();
+      await buscarRegistros(
+        dataSelecionada
+      );
 
     if (!dados || dados.length === 0) {
 
@@ -731,21 +746,7 @@ ${endereco.cep || "-"}
 
                 if (date) {
 
-                  /*
-                    CORREÇÃO DO FUSO HORÁRIO
-                  */
-
-                  const dataCorrigida =
-                    new Date(
-                      date.getTime() +
-                      Math.abs(
-                        date.getTimezoneOffset() * 60000
-                      )
-                    );
-
-                  setDataSelecionada(
-                    dataCorrigida
-                  );
+                  setDataSelecionada(date);
                 }
               }}
             />

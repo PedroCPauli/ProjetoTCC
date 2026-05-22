@@ -7,25 +7,28 @@ import * as Sharing from 'expo-sharing';
 import { useEffect, useState } from 'react';
 
 import {
-    Alert,
-    FlatList,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Alert,
+  FlatList,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 import { supabase } from '../lib/supabase';
 
 export default function AdminScreen() {
 
-  const [usuarios, setUsuarios] = useState<any[]>([]);
+  const [usuarios, setUsuarios] =
+    useState<any[]>([]);
+
   const [usuarioSelecionado, setUsuarioSelecionado] =
     useState<any>(null);
 
-  const [pontos, setPontos] = useState<any[]>([]);
+  const [pontos, setPontos] =
+    useState<any[]>([]);
 
   const [dataSelecionada, setDataSelecionada] =
     useState<Date | null>(null);
@@ -44,7 +47,7 @@ export default function AdminScreen() {
 
   /*
     ============================
-    CARREGA ADMIN
+    CARREGAR ADMIN
     ============================
   */
 
@@ -70,10 +73,6 @@ export default function AdminScreen() {
       const adminStorage =
         JSON.parse(storage);
 
-      /*
-        BUSCA ADMIN COMPLETO
-      */
-
       const {
         data,
         error
@@ -98,8 +97,6 @@ export default function AdminScreen() {
 
       if (error) {
 
-        console.log(error);
-
         Alert.alert(
           "Erro",
           error.message
@@ -108,15 +105,7 @@ export default function AdminScreen() {
         return;
       }
 
-      /*
-        SETA ADMIN
-      */
-
       setHospitalAdmin(data);
-
-      /*
-        BUSCA FUNCIONÁRIOS
-      */
 
       buscarUsuarios(
         data.idhospital
@@ -135,7 +124,7 @@ export default function AdminScreen() {
 
   /*
     ============================
-    BUSCA USUÁRIOS HOSPITAL
+    BUSCAR USUÁRIOS
     ============================
   */
 
@@ -171,8 +160,6 @@ export default function AdminScreen() {
 
       if (error) {
 
-        console.log(error);
-
         Alert.alert(
           "Erro",
           error.message
@@ -196,12 +183,58 @@ export default function AdminScreen() {
 
   /*
     ============================
-    BUSCA PONTOS
+    FORMATAR DATA BANCO
+    ============================
+  */
+
+  function formatarDataBanco(
+    data: Date
+  ) {
+
+    const ano =
+      data.getFullYear();
+
+    const mes =
+      String(
+        data.getMonth() + 1
+      ).padStart(2, "0");
+
+    const dia =
+      String(
+        data.getDate()
+      ).padStart(2, "0");
+
+    return `${ano}-${mes}-${dia}`;
+  }
+
+  /*
+    ============================
+    FORMATAR DATA BRASIL
+    ============================
+  */
+
+  function formatarDataBrasil(
+    data: string
+  ) {
+
+    if (!data)
+      return "-";
+
+    const partes =
+      data.split("-");
+
+    return `${partes[2]}/${partes[1]}/${partes[0]}`;
+  }
+
+  /*
+    ============================
+    BUSCAR PONTOS
     ============================
   */
 
   async function buscarPontos(
-    idusuario: number
+    idusuario: number,
+    dataFiltro?: Date | null
   ) {
 
     try {
@@ -235,12 +268,12 @@ export default function AdminScreen() {
         FILTRO DATA
       */
 
-      if (dataSelecionada) {
+      if (dataFiltro) {
 
         const dataFormatada =
-          dataSelecionada
-            .toISOString()
-            .split("T")[0];
+          formatarDataBanco(
+            dataFiltro
+          );
 
         query =
           query.eq(
@@ -275,28 +308,15 @@ export default function AdminScreen() {
         );
       }
 
-    } catch {
+    } catch (error) {
+
+      console.log(error);
 
       Alert.alert(
         "Erro",
         "Falha ao buscar registros"
       );
     }
-  }
-
-  /*
-    ============================
-    FORMATAR DATA
-    ============================
-  */
-
-  function formatarData(
-    data: Date
-  ) {
-
-    return data.toLocaleDateString(
-      "pt-BR"
-    );
   }
 
   /*
@@ -311,6 +331,7 @@ export default function AdminScreen() {
   ) {
 
     if (!entrada || !saida) {
+
       return "Em aberto";
     }
 
@@ -330,6 +351,7 @@ export default function AdminScreen() {
       fim - inicio;
 
     if (diferenca <= 0) {
+
       return "0h";
     }
 
@@ -361,16 +383,16 @@ export default function AdminScreen() {
     }
 
     const texto =
-      pontos.map(p =>
+      pontos.map((p) => `
 
-        `Hospital:
+Hospital:
 ${hospitalAdmin?.hospital?.nome || "-"}
 
 Funcionário:
-${usuarioSelecionado?.nome}
+${usuarioSelecionado?.nome || "-"}
 
 Data:
-${p.data}
+${formatarDataBrasil(p.data)}
 
 Entrada:
 ${p.horaentrada || "-"}
@@ -382,9 +404,9 @@ Horas Trabalhadas:
 ${calcularHoras(
   p.horaentrada,
   p.horasaida
-)}`
+)}
 
-      ).join("\n\n");
+      `).join("\n\n");
 
     Alert.alert(
       "Relatório",
@@ -429,12 +451,12 @@ ${calcularHoras(
 
           <h3>
             Funcionário:
-            ${usuarioSelecionado?.nome}
+            ${usuarioSelecionado?.nome || "-"}
           </h3>
 
           <hr />
 
-          ${pontos.map(p => `
+          ${pontos.map((p) => `
 
             <div style="
               margin-bottom: 20px;
@@ -442,7 +464,7 @@ ${calcularHoras(
 
               <p>
                 <strong>Data:</strong>
-                ${p.data}
+                ${formatarDataBrasil(p.data)}
               </p>
 
               <p>
@@ -524,7 +546,7 @@ ${calcularHoras(
 
         </View>
 
-        {/* VOLTAR */}
+        {/* BOTÃO VOLTAR */}
 
         <TouchableOpacity
           style={styles.botaoVoltar}
@@ -569,8 +591,11 @@ ${calcularHoras(
 
                 setUsuarioSelecionado(item);
 
+                setDataSelecionada(null);
+
                 buscarPontos(
-                  item.idusuario
+                  item.idusuario,
+                  null
                 );
               }}
             >
@@ -626,9 +651,7 @@ ${calcularHoras(
               <Text style={styles.botaoTexto}>
 
                 {dataSelecionada
-                  ? formatarData(
-                    dataSelecionada
-                  )
+                  ? dataSelecionada.toLocaleDateString("pt-BR")
                   : "Selecionar Data"}
 
               </Text>
@@ -652,16 +675,20 @@ ${calcularHoras(
                     : "default"
                 }
 
-                onChange={(
-                  event,
-                  date
-                ) => {
+                onChange={(event, date) => {
 
                   setMostrarCalendario(false);
 
                   if (date) {
 
-                    setDataSelecionada(
+                    /*
+                      USA DATA EXATA
+                    */
+
+                    setDataSelecionada(date);
+
+                    buscarPontos(
+                      usuarioSelecionado.idusuario,
                       date
                     );
                   }
@@ -674,8 +701,10 @@ ${calcularHoras(
               style={styles.botao}
 
               onPress={() =>
+
                 buscarPontos(
-                  usuarioSelecionado.idusuario
+                  usuarioSelecionado.idusuario,
+                  dataSelecionada
                 )
               }
             >
@@ -763,19 +792,12 @@ const styles = StyleSheet.create({
 
   hospitalCard: {
     backgroundColor: "#fff",
-
     padding: 16,
-
     borderRadius: 16,
-
     flexDirection: "row",
-
     alignItems: "center",
-
     gap: 10,
-
     marginBottom: 16,
-
     elevation: 3
   },
 
@@ -786,21 +808,13 @@ const styles = StyleSheet.create({
   },
 
   botaoVoltar: {
-
     backgroundColor: '#0F172A',
-
     padding: 12,
-
     borderRadius: 12,
-
     flexDirection: 'row',
-
     alignItems: 'center',
-
     justifyContent: 'center',
-
     gap: 8,
-
     marginBottom: 20
   },
 
@@ -812,19 +826,12 @@ const styles = StyleSheet.create({
 
   userCard: {
     backgroundColor: '#fff',
-
     borderRadius: 18,
-
     padding: 16,
-
     flexDirection: 'row',
-
     alignItems: 'center',
-
     gap: 12,
-
     marginBottom: 12,
-
     elevation: 3
   },
 
@@ -840,67 +847,42 @@ const styles = StyleSheet.create({
 
   relatorioCard: {
     backgroundColor: '#fff',
-
     borderRadius: 18,
-
     padding: 20,
-
     marginTop: 20,
-
     elevation: 3
   },
 
   botao: {
     backgroundColor: '#2563EB',
-
     padding: 14,
-
     borderRadius: 12,
-
     flexDirection: 'row',
-
     justifyContent: 'center',
-
     alignItems: 'center',
-
     gap: 8,
-
     marginTop: 10
   },
 
   botaoData: {
     backgroundColor: '#1D4ED8',
-
     padding: 14,
-
     borderRadius: 12,
-
     flexDirection: 'row',
-
     justifyContent: 'center',
-
     alignItems: 'center',
-
     gap: 8,
-
     marginTop: 10
   },
 
   botaoPdf: {
     backgroundColor: '#0F172A',
-
     padding: 14,
-
     borderRadius: 12,
-
     flexDirection: 'row',
-
     justifyContent: 'center',
-
     alignItems: 'center',
-
     gap: 8,
-
     marginTop: 10
   },
 

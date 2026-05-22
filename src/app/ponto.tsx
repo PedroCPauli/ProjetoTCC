@@ -445,8 +445,8 @@ export default function PontoScreen() {
       ) {
 
         Alert.alert(
-          "Aviso",
-          "Ponto já finalizado hoje"
+          "Aviso",  
+          "Ponto de hoje já registrado!" 
         );
 
         return;
