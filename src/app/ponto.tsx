@@ -1,12 +1,21 @@
 import { MaterialIcons } from '@expo/vector-icons';
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import * as Location from 'expo-location';
+
 import { router } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+
+import {
+  useEffect,
+  useRef,
+  useState
+} from "react";
 
 import {
   Alert,
   Animated,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -14,21 +23,39 @@ import {
   View
 } from "react-native";
 
+import { LinearGradient } from 'expo-linear-gradient';
+
+import * as Animatable from 'react-native-animatable';
+
 import { supabase } from "../lib/supabase";
 
 export default function PontoScreen() {
 
-  const [dataAtual, setDataAtual] = useState("");
-  const [horaAtual, setHoraAtual] = useState("");
+  const [dataAtual, setDataAtual] =
+    useState("");
 
-  const [entrada, setEntrada] = useState("");
-  const [saida, setSaida] = useState("");
+  const [horaAtual, setHoraAtual] =
+    useState("");
+
+  const [entrada, setEntrada] =
+    useState("");
+
+  const [saida, setSaida] =
+    useState("");
 
   const [statusLocal, setStatusLocal] =
     useState("");
 
   const scaleAnim =
-    useRef(new Animated.Value(1)).current;
+    useRef(
+      new Animated.Value(1)
+    ).current;
+
+  /*
+    =========================
+    RELÓGIO
+    =========================
+  */
 
   useEffect(() => {
 
@@ -37,6 +64,7 @@ export default function PontoScreen() {
       const agora = new Date();
 
       setDataAtual(
+
         agora.toLocaleDateString(
           "pt-BR",
           {
@@ -47,6 +75,7 @@ export default function PontoScreen() {
       );
 
       setHoraAtual(
+
         agora.toLocaleTimeString(
           "pt-BR",
           {
@@ -72,23 +101,29 @@ export default function PontoScreen() {
 
   /*
     =========================
-    ANIMAÇÃO
+    ANIMAÇÃO BOTÃO
     =========================
   */
 
   const animatePressIn = () => {
 
     Animated.spring(scaleAnim, {
-      toValue: 0.95,
-      useNativeDriver: true,
+
+      toValue: 0.96,
+
+      useNativeDriver: true
+
     }).start();
   };
 
   const animatePressOut = () => {
 
     Animated.spring(scaleAnim, {
+
       toValue: 1,
-      useNativeDriver: true,
+
+      useNativeDriver: true
+
     }).start();
   };
 
@@ -151,11 +186,8 @@ export default function PontoScreen() {
 
     try {
 
-      /*
-        PERMISSÃO GPS
-      */
-
       const { status } =
+
         await Location
           .requestForegroundPermissionsAsync();
 
@@ -169,11 +201,8 @@ export default function PontoScreen() {
         return;
       }
 
-      /*
-        LOCALIZAÇÃO ATUAL
-      */
-
       const localAtual =
+
         await Location
           .getCurrentPositionAsync({
 
@@ -182,11 +211,8 @@ export default function PontoScreen() {
 
           });
 
-      /*
-        USUÁRIO LOGADO
-      */
-
       const usuarioStorage =
+
         await AsyncStorage.getItem(
           "@medponto_usuario"
         );
@@ -204,10 +230,6 @@ export default function PontoScreen() {
       const usuario =
         JSON.parse(usuarioStorage);
 
-      /*
-        VALIDA HOSPITAL
-      */
-
       if (!usuario.idhospital) {
 
         Alert.alert(
@@ -218,11 +240,8 @@ export default function PontoScreen() {
         return;
       }
 
-      /*
-        BUSCA ENDEREÇO
-      */
-
       const {
+
         data: endereco,
         error: enderecoError
 
@@ -244,10 +263,6 @@ export default function PontoScreen() {
         !endereco
       ) {
 
-        console.log(
-          enderecoError
-        );
-
         Alert.alert(
           "Erro",
           "Endereço não encontrado"
@@ -256,28 +271,8 @@ export default function PontoScreen() {
         return;
       }
 
-      /*
-        VALIDA LAT/LONG
-      */
-
-      if (
-        !endereco.latitude ||
-        !endereco.longitude
-      ) {
-
-        Alert.alert(
-          "Erro",
-          "Endereço sem localização"
-        );
-
-        return;
-      }
-
-      /*
-        DISTÂNCIA
-      */
-
       const distancia =
+
         calcularDistancia(
 
           Number(
@@ -297,10 +292,6 @@ export default function PontoScreen() {
           )
         );
 
-      /*
-        LIMITE
-      */
-
       if (distancia > 150) {
 
         Alert.alert(
@@ -311,18 +302,20 @@ export default function PontoScreen() {
         return;
       }
 
-      /*
-        DATA / HORA
-      */
-
       const agora = new Date();
 
       const data =
+
         agora.toLocaleDateString(
-          "sv-SE"
+          "sv-SE",
+          {
+            timeZone:
+              "America/Sao_Paulo"
+          }
         );
 
       const hora =
+
         agora.toLocaleTimeString(
           "pt-BR",
           {
@@ -331,11 +324,8 @@ export default function PontoScreen() {
           }
         );
 
-      /*
-        BUSCA PONTO
-      */
-
       const {
+
         data: pontoExistente,
         error: pontoError
 
@@ -358,10 +348,6 @@ export default function PontoScreen() {
         .maybeSingle();
 
       if (pontoError) {
-
-        console.log(
-          pontoError
-        );
 
         Alert.alert(
           "Erro",
@@ -410,10 +396,6 @@ export default function PontoScreen() {
 
         if (insertError) {
 
-          console.log(
-            insertError
-          );
-
           Alert.alert(
             "Erro",
             insertError.message
@@ -445,8 +427,8 @@ export default function PontoScreen() {
       ) {
 
         Alert.alert(
-          "Aviso",  
-          "Ponto de hoje já registrado!" 
+          "Aviso",
+          "Ponto de hoje já registrado!"
         );
 
         return;
@@ -472,10 +454,6 @@ export default function PontoScreen() {
 
       if (updateError) {
 
-        console.log(
-          updateError
-        );
-
         Alert.alert(
           "Erro",
           updateError.message
@@ -497,13 +475,10 @@ export default function PontoScreen() {
 
     } catch (err: any) {
 
-      console.log(
-        "ERRO COMPLETO:",
-        err
-      );
+      console.log(err);
 
       Alert.alert(
-        "Erro inesperado",
+        "Erro",
         err?.message ||
         "Erro ao bater ponto"
       );
@@ -512,206 +487,652 @@ export default function PontoScreen() {
 
   return (
 
-    <View style={styles.container}>
+    <LinearGradient
 
-      <View style={styles.card}>
+      colors={[
+        "#F8FAFC",
+        "#EEF4FF",
+        "#FFFFFF"
+      ]}
 
-        <Text style={styles.titulo}>
-          Registro de Ponto
-        </Text>
+      style={styles.gradient}
+    >
 
-        <Text style={styles.data}>
-          📅 {dataAtual}
-        </Text>
+      <StatusBar
+        barStyle="dark-content"
+      />
 
-        <Text style={styles.hora}>
-          {horaAtual}
-        </Text>
+      {/* DETALHES FUNDO */}
 
-        {statusLocal !== "" && (
+      <View style={styles.circleTop} />
 
-          <Text style={styles.status}>
-            {statusLocal}
-          </Text>
-        )}
+      <View style={styles.circleBottom} />
 
-        <TouchableWithoutFeedback
-          onPressIn={animatePressIn}
-          onPressOut={animatePressOut}
-          onPress={baterPonto}
+      <View style={styles.container}>
+
+        {/* HEADER */}
+
+        <Animatable.View
+
+          animation="fadeInDown"
+
+          duration={1000}
+
+          style={styles.header}
         >
 
-          <Animated.View
-            style={[
-              styles.botao,
-              {
-                transform: [
-                  {
-                    scale: scaleAnim
-                  }
-                ]
-              }
-            ]}
+          <View>
+
+            <Text style={styles.bemvindo}>
+              MEDPonto
+            </Text>
+
+            <Text style={styles.subtitulo}>
+              Registro inteligente
+            </Text>
+
+          </View>
+
+          <View style={styles.iconHeader}>
+
+            <MaterialIcons
+              name="medical-services"
+              size={28}
+              color="#2563EB"
+            />
+
+          </View>
+
+        </Animatable.View>
+
+        {/* CARD PRINCIPAL */}
+
+        <Animatable.View
+
+          animation="fadeInUp"
+
+          duration={1200}
+
+          style={styles.card}
+        >
+
+          <View style={styles.clockContainer}>
+
+            <Text style={styles.labelClock}>
+              Horário Atual
+            </Text>
+
+            <Text style={styles.hora}>
+              {horaAtual}
+            </Text>
+
+            <Text style={styles.data}>
+              {dataAtual}
+            </Text>
+
+          </View>
+
+          {statusLocal !== "" && (
+
+            <View style={styles.statusContainer}>
+
+              <MaterialIcons
+                name="verified"
+                size={18}
+                color="#22C55E"
+              />
+
+              <Text style={styles.status}>
+                {statusLocal}
+              </Text>
+
+            </View>
+          )}
+
+          {/* BOTÃO */}
+
+          <TouchableWithoutFeedback
+
+            onPressIn={animatePressIn}
+
+            onPressOut={animatePressOut}
+
+            onPress={baterPonto}
+          >
+
+            <Animated.View
+
+              style={[
+
+                styles.botaoContainer,
+
+                {
+                  transform: [
+                    {
+                      scale: scaleAnim
+                    }
+                  ]
+                }
+              ]}
+            >
+
+              <LinearGradient
+
+                colors={[
+                  "#3B82F6",
+                  "#2563EB"
+                ]}
+
+                start={{
+                  x: 0,
+                  y: 0
+                }}
+
+                end={{
+                  x: 1,
+                  y: 1
+                }}
+
+                style={styles.botao}
+              >
+
+                <MaterialIcons
+                  name="fingerprint"
+                  size={30}
+                  color="#fff"
+                />
+
+                <Text style={styles.textoBotao}>
+                  Bater Ponto
+                </Text>
+
+              </LinearGradient>
+
+            </Animated.View>
+
+          </TouchableWithoutFeedback>
+
+          {/* REGISTROS */}
+
+          <View style={styles.registrosArea}>
+
+            <View style={styles.registroCard}>
+
+              <View style={styles.iconEntrada}>
+
+                <MaterialIcons
+                  name="login"
+                  size={22}
+                  color="#22C55E"
+                />
+
+              </View>
+
+              <View>
+
+                <Text style={styles.registroTitulo}>
+                  Entrada
+                </Text>
+
+                <Text style={styles.registroHorario}>
+                  {entrada || "--:--:--"}
+                </Text>
+
+              </View>
+
+            </View>
+
+            <View style={styles.registroCard}>
+
+              <View style={styles.iconSaida}>
+
+                <MaterialIcons
+                  name="logout"
+                  size={22}
+                  color="#EF4444"
+                />
+
+              </View>
+
+              <View>
+
+                <Text style={styles.registroTitulo}>
+                  Saída
+                </Text>
+
+                <Text style={styles.registroHorario}>
+                  {saida || "--:--:--"}
+                </Text>
+
+              </View>
+
+            </View>
+
+          </View>
+
+        </Animatable.View>
+
+        {/* MENU */}
+
+        <View style={styles.menu}>
+
+          <TouchableOpacity
+            style={styles.menuButton}
+            onPress={() =>
+              router.replace("/")
+            }
+          >
+
+            <MaterialIcons
+              name="home"
+              size={26}
+              color="#64748B"
+            />
+
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.menuButtonActive}
           >
 
             <MaterialIcons
               name="fingerprint"
-              size={26}
+              size={30}
               color="#fff"
             />
 
-            <Text style={styles.textoBotao}>
-              Bater Ponto
-            </Text>
+          </TouchableOpacity>
 
-          </Animated.View>
+          <TouchableOpacity
+            style={styles.menuButton}
+            onPress={() =>
+              router.replace("/config")
+            }
+          >
 
-        </TouchableWithoutFeedback>
+            <MaterialIcons
+              name="settings"
+              size={26}
+              color="#64748B"
+            />
 
-        {entrada !== "" && (
+          </TouchableOpacity>
 
-          <Text style={styles.registro}>
-            ✅ Entrada: {entrada}
-          </Text>
-        )}
-
-        {saida !== "" && (
-
-          <Text style={styles.registro}>
-            ❌ Saída: {saida}
-          </Text>
-        )}
+        </View>
 
       </View>
 
-      <View style={styles.menu}>
-
-        <TouchableOpacity
-          onPress={() =>
-            router.replace("/")
-          }
-        >
-
-          <MaterialIcons
-            name="home"
-            size={28}
-            color="#555"
-          />
-
-        </TouchableOpacity>
-
-        <TouchableOpacity>
-
-          <MaterialIcons
-            name="schedule"
-            size={28}
-            color="#2E86DE"
-          />
-
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() =>
-            router.replace("/config")
-          }
-        >
-
-          <MaterialIcons
-            name="settings"
-            size={28}
-            color="#555"
-          />
-
-        </TouchableOpacity>
-
-      </View>
-
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
 
+  gradient: {
+    flex: 1
+  },
+
+  circleTop: {
+
+    position: "absolute",
+
+    width: 260,
+
+    height: 260,
+
+    borderRadius: 200,
+
+    backgroundColor: "#DBEAFE",
+
+    top: -100,
+
+    right: -80,
+
+    opacity: 0.5
+  },
+
+  circleBottom: {
+
+    position: "absolute",
+
+    width: 240,
+
+    height: 240,
+
+    borderRadius: 200,
+
+    backgroundColor: "#E0F2FE",
+
+    bottom: -100,
+
+    left: -80,
+
+    opacity: 0.5
+  },
+
   container: {
+
     flex: 1,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#F4F6F8',
-    paddingTop: 60
+
+    paddingTop: 70,
+
+    paddingHorizontal: 22,
+
+    justifyContent: "space-between"
+  },
+
+  header: {
+
+    flexDirection: "row",
+
+    justifyContent: "space-between",
+
+    alignItems: "center"
+  },
+
+  bemvindo: {
+
+    fontSize: 30,
+
+    fontWeight: "bold",
+
+    color: "#0F172A"
+  },
+
+  subtitulo: {
+
+    fontSize: 15,
+
+    color: "#64748B",
+
+    marginTop: 4
+  },
+
+  iconHeader: {
+
+    width: 58,
+
+    height: 58,
+
+    borderRadius: 20,
+
+    backgroundColor: "#FFFFFF",
+
+    justifyContent: "center",
+
+    alignItems: "center",
+
+    shadowColor: "#2563EB",
+
+    shadowOffset: {
+      width: 0,
+      height: 5
+    },
+
+    shadowOpacity: 0.08,
+
+    shadowRadius: 10,
+
+    elevation: 5
   },
 
   card: {
-    width: '90%',
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 25,
-    alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000',
+
+    backgroundColor: "#FFFFFF",
+
+    borderRadius: 32,
+
+    padding: 26,
+
+    borderWidth: 1,
+
+    borderColor: "#E2E8F0",
+
+    shadowColor: "#2563EB",
+
     shadowOffset: {
       width: 0,
-      height: 2
+      height: 10
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 4
+
+    shadowOpacity: 0.08,
+
+    shadowRadius: 18,
+
+    elevation: 10
   },
 
-  titulo: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    color: '#1E293B'
+  clockContainer: {
+
+    alignItems: "center",
+
+    marginBottom: 28
   },
 
-  data: {
-    fontSize: 18,
-    color: '#475569'
+  labelClock: {
+
+    fontSize: 15,
+
+    color: "#64748B",
+
+    marginBottom: 10
   },
 
   hora: {
-    fontSize: 34,
-    fontWeight: 'bold',
-    color: '#2E86DE',
-    marginVertical: 15
+
+    fontSize: 48,
+
+    fontWeight: "bold",
+
+    color: "#2563EB"
+  },
+
+  data: {
+
+    marginTop: 10,
+
+    fontSize: 17,
+
+    color: "#475569",
+
+    fontWeight: "500"
+  },
+
+  statusContainer: {
+
+    flexDirection: "row",
+
+    justifyContent: "center",
+
+    alignItems: "center",
+
+    gap: 6,
+
+    marginBottom: 24
   },
 
   status: {
-    color: '#27AE60',
-    marginBottom: 20,
-    fontWeight: 'bold',
-    textAlign: 'center'
+
+    color: "#22C55E",
+
+    fontWeight: "600",
+
+    fontSize: 15
+  },
+
+  botaoContainer: {
+
+    borderRadius: 24,
+
+    overflow: "hidden",
+
+    marginBottom: 30
   },
 
   botao: {
-    backgroundColor: '#2E86DE',
-    flexDirection: 'row',
-    gap: 10,
-    paddingVertical: 15,
-    paddingHorizontal: 40,
-    borderRadius: 16,
-    alignItems: 'center',
-    elevation: 4
+
+    height: 68,
+
+    borderRadius: 24,
+
+    flexDirection: "row",
+
+    justifyContent: "center",
+
+    alignItems: "center",
+
+    gap: 12
   },
 
   textoBotao: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 18
+
+    color: "#FFFFFF",
+
+    fontSize: 19,
+
+    fontWeight: "bold"
   },
 
-  registro: {
-    marginTop: 15,
-    fontSize: 16,
-    fontWeight: '600'
+  registrosArea: {
+
+    gap: 16
+  },
+
+  registroCard: {
+
+    backgroundColor: "#F8FAFC",
+
+    borderRadius: 20,
+
+    padding: 18,
+
+    flexDirection: "row",
+
+    alignItems: "center",
+
+    gap: 14
+  },
+
+  iconEntrada: {
+
+    width: 50,
+
+    height: 50,
+
+    borderRadius: 16,
+
+    backgroundColor: "#DCFCE7",
+
+    justifyContent: "center",
+
+    alignItems: "center"
+  },
+
+  iconSaida: {
+
+    width: 50,
+
+    height: 50,
+
+    borderRadius: 16,
+
+    backgroundColor: "#FEE2E2",
+
+    justifyContent: "center",
+
+    alignItems: "center"
+  },
+
+  registroTitulo: {
+
+    fontSize: 14,
+
+    color: "#64748B"
+  },
+
+  registroHorario: {
+
+    fontSize: 18,
+
+    fontWeight: "bold",
+
+    color: "#0F172A",
+
+    marginTop: 2
   },
 
   menu: {
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: '#fff',
-    paddingVertical: 15,
-    borderTopWidth: 1,
-    borderColor: '#ddd'
+
+    backgroundColor: "#FFFFFF",
+
+    borderRadius: 28,
+
+    paddingVertical: 16,
+
+    paddingHorizontal: 30,
+
+    marginBottom: 22,
+
+    flexDirection: "row",
+
+    justifyContent: "space-between",
+
+    alignItems: "center",
+
+    shadowColor: "#000",
+
+    shadowOffset: {
+      width: 0,
+      height: 0
+    },
+
+    shadowOpacity: 0.06,
+
+    shadowRadius: 10,
+
+    elevation: 10
+  },
+
+  menuButton: {
+
+    width: 52,
+
+    height: 52,
+
+    borderRadius: 18,
+
+    justifyContent: "center",
+
+    alignItems: "center"
+  },
+
+  menuButtonActive: {
+
+    width: 62,
+
+    height: 62,
+
+    borderRadius: 22,
+
+    backgroundColor: "#2563EB",
+
+    justifyContent: "center",
+
+    alignItems: "center",
+
+    marginTop: -40,
+
+    shadowColor: "#2563EB",
+
+    shadowOffset: {
+      width: 0,
+      height: 10
+    },
+
+    shadowOpacity: 0.2,
+
+    shadowRadius: 12,
+
+    elevation: 12
   }
 });

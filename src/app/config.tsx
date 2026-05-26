@@ -1,36 +1,53 @@
 import { MaterialIcons } from '@expo/vector-icons';
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import DateTimePicker from '@react-native-community/datetimepicker';
+
 import * as Location from 'expo-location';
+
 import * as Print from 'expo-print';
+
 import { router } from "expo-router";
+
 import * as Sharing from 'expo-sharing';
+
 import { useEffect, useState } from "react";
 
 import {
   Alert,
   Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from "react-native";
 
+import { LinearGradient } from 'expo-linear-gradient';
+
+import * as Animatable from 'react-native-animatable';
+
 import { supabase } from "../lib/supabase";
 
 export default function ConfigScreen() {
 
   const [usuario, setUsuario] = useState<any>({});
+
   const [endereco, setEndereco] = useState<any>({});
+
   const [hospital, setHospital] = useState<any>({});
 
   const [localizacao, setLocalizacao] = useState({
+
     latitude: "-",
+
     longitude: "-"
   });
 
-  const [registros, setRegistros] = useState<any[]>([]);
+  const [registros, setRegistros] =
+    useState<any[]>([]);
 
   const [dataSelecionada, setDataSelecionada] =
     useState<Date | null>(null);
@@ -44,9 +61,11 @@ export default function ConfigScreen() {
 
   }, []);
 
-  // =====================================
-  // CARREGA DADOS
-  // =====================================
+  /*
+    =====================================
+    CARREGA DADOS
+    =====================================
+  */
 
   async function carregarDados() {
 
@@ -57,16 +76,20 @@ export default function ConfigScreen() {
     await buscarRegistros();
   }
 
-  // =====================================
-  // USUÁRIO + ENDEREÇO + HOSPITAL
-  // =====================================
+  /*
+    =====================================
+    USUÁRIO
+    =====================================
+  */
 
   async function obterUsuarioLogado() {
 
     try {
 
       const usuarioStorage =
-        await AsyncStorage.getItem("@medponto_usuario");
+        await AsyncStorage.getItem(
+          "@medponto_usuario"
+        );
 
       if (!usuarioStorage) {
 
@@ -82,6 +105,7 @@ export default function ConfigScreen() {
         JSON.parse(usuarioStorage);
 
       const {
+
         data: usuarioData,
         error: usuarioError
 
@@ -103,8 +127,6 @@ export default function ConfigScreen() {
 
       if (usuarioError) {
 
-        console.log(usuarioError);
-
         Alert.alert(
           "Erro",
           usuarioError.message
@@ -118,6 +140,7 @@ export default function ConfigScreen() {
       if (usuarioData?.idhospital) {
 
         const {
+
           data: hospitalBusca,
           error: hospitalError
 
@@ -153,9 +176,7 @@ export default function ConfigScreen() {
         hospitalData || {}
       );
 
-    } catch (error) {
-
-      console.log(error);
+    } catch {
 
       Alert.alert(
         "Erro",
@@ -164,16 +185,20 @@ export default function ConfigScreen() {
     }
   }
 
-  // =====================================
-  // LOCALIZAÇÃO
-  // =====================================
+  /*
+    =====================================
+    LOCALIZAÇÃO
+    =====================================
+  */
 
   async function obterLocalizacao() {
 
     try {
 
       const { status } =
-        await Location.requestForegroundPermissionsAsync();
+
+        await Location
+          .requestForegroundPermissionsAsync();
 
       if (status !== "granted") {
 
@@ -186,9 +211,13 @@ export default function ConfigScreen() {
       }
 
       const loc =
-        await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.High
-        });
+
+        await Location
+          .getCurrentPositionAsync({
+
+            accuracy:
+              Location.Accuracy.High
+          });
 
       setLocalizacao({
 
@@ -209,11 +238,15 @@ export default function ConfigScreen() {
     }
   }
 
-  // =====================================
-  // FORMATAR DATA BANCO
-  // =====================================
+  /*
+    =====================================
+    FORMATAR DATA
+    =====================================
+  */
 
-  function formatarDataBanco(data: Date) {
+  function formatarDataBanco(
+    data: Date
+  ) {
 
     const ano =
       data.getFullYear();
@@ -231,11 +264,9 @@ export default function ConfigScreen() {
     return `${ano}-${mes}-${dia}`;
   }
 
-  // =====================================
-  // FORMATAR DATA BRASIL
-  // =====================================
-
-  function formatarDataBrasil(data: string) {
+  function formatarDataBrasil(
+    data: string
+  ) {
 
     if (!data) return "-";
 
@@ -245,9 +276,11 @@ export default function ConfigScreen() {
     return `${partes[2]}/${partes[1]}/${partes[0]}`;
   }
 
-  // =====================================
-  // BUSCAR REGISTROS
-  // =====================================
+  /*
+    =====================================
+    BUSCAR REGISTROS
+    =====================================
+  */
 
   async function buscarRegistros(
     dataFiltro?: Date | null
@@ -267,6 +300,7 @@ export default function ConfigScreen() {
         JSON.parse(usuarioStorage);
 
       let query =
+
         supabase
 
           .from("ponto")
@@ -285,21 +319,12 @@ export default function ConfigScreen() {
             }
           );
 
-      /*
-        FILTRO DE DATA
-      */
-
       if (dataFiltro) {
 
         const dataFormatada =
           formatarDataBanco(
             dataFiltro
           );
-
-        console.log(
-          "DATA FILTRO:",
-          dataFormatada
-        );
 
         query =
           query.eq(
@@ -309,14 +334,13 @@ export default function ConfigScreen() {
       }
 
       const {
+
         data,
         error
 
       } = await query;
 
       if (error) {
-
-        console.log(error);
 
         Alert.alert(
           "Erro",
@@ -332,9 +356,7 @@ export default function ConfigScreen() {
 
       return data || [];
 
-    } catch (error) {
-
-      console.log(error);
+    } catch {
 
       Alert.alert(
         "Erro",
@@ -345,9 +367,11 @@ export default function ConfigScreen() {
     }
   }
 
-  // =====================================
-  // CALCULAR HORAS
-  // =====================================
+  /*
+    =====================================
+    CALCULAR HORAS
+    =====================================
+  */
 
   function calcularHoras(
     entrada: string,
@@ -384,44 +408,40 @@ export default function ConfigScreen() {
     return `${horas}h ${minutos}m`;
   }
 
-  // =====================================
-  // GERAR RELATÓRIO
-  // =====================================
+  /*
+    =====================================
+    RELATÓRIO
+    =====================================
+  */
 
-  async function gerarRelatorio() {
+ async function gerarRelatorio() {
 
-    const dados =
-      await buscarRegistros(
-        dataSelecionada
-      );
+  const dados =
+    await buscarRegistros(
+      dataSelecionada
+    );
 
-    if (!dados || dados.length === 0) {
+  if (!dados || dados.length === 0) {
 
-      Alert.alert(
-        "Erro",
-        "Nenhum registro encontrado"
-      );
+    Alert.alert(
+      "Erro",
+      "Nenhum registro encontrado"
+    );
 
-      return;
-    }
+    return;
+  }
 
-    const texto =
-      dados.map((r: any) => `
+  const texto = `
 
-Data:
-${formatarDataBrasil(r.data)}
+==========================
+Relatório de ponto
+==========================
 
-Entrada:
-${r.horaentrada || "-"}
+Funcionário:
+${usuario.nome || "-"}
 
-Saída:
-${r.horasaida || "-"}
-
-Horas Trabalhadas:
-${calcularHoras(
-  r.horaentrada,
-  r.horasaida
-)}
+E-mail:
+${usuario.email || "-"}
 
 Hospital:
 ${hospital.nome || "-"}
@@ -436,554 +456,791 @@ ${endereco.bairro || "-"}
 CEP:
 ${endereco.cep || "-"}
 
-      `).join("\n\n");
+==========================
+
+${dados.map((r: any) => `
+
+Data:
+${formatarDataBrasil(r.data)}
+
+Entrada:
+${r.horaentrada || "-"}
+
+Saída:
+${r.horasaida || "-"}
+
+Horas trabalhadas:
+${calcularHoras(
+  r.horaentrada,
+  r.horasaida
+)}
+
+--------------------------
+
+`).join("")}
+`;
+
+  Alert.alert(
+    "Relatório",
+    texto
+  );
+}
+
+/*
+  =====================================
+  PDF
+  =====================================
+*/
+
+async function exportarPDF() {
+
+  const dados =
+    await buscarRegistros(
+      dataSelecionada
+    );
+
+  if (!dados || dados.length === 0) {
 
     Alert.alert(
-      "Relatório",
-      texto
+      "Erro",
+      "Nenhum dado encontrado"
     );
+
+    return;
   }
 
-  // =====================================
-  // EXPORTAR PDF
-  // =====================================
+  const html = `
+    <html>
 
-  async function exportarPDF() {
+      <body style="
+        font-family: Arial;
+        padding: 24px;
+        color: #1E293B;
+      ">
 
-    const dados =
-      await buscarRegistros(
-        dataSelecionada
-      );
-
-    if (!dados || dados.length === 0) {
-
-      Alert.alert(
-        "Erro",
-        "Nenhum dado encontrado"
-      );
-
-      return;
-    }
-
-    const html = `
-      <html>
-
-        <body style="
-          font-family: Arial;
-          padding: 20px;
+        <h1 style="
+          color: #2563EB;
+          margin-bottom: 10px;
         ">
+          Relatório de Ponto
+        </h1>
 
-          <h1>
-            Relatório de Ponto
-          </h1>
+        <hr />
 
-          <hr />
+        <h2>
+          Dados do Funcionário
+        </h2>
 
-          <h2>
-            Dados do Funcionário
-          </h2>
+        <p>
+          <strong>Nome:</strong>
+          ${usuario.nome || "-"}
+        </p>
 
-          <p>
-            <strong>Nome:</strong>
-            ${usuario.nome || "-"}
-          </p>
+        <p>
+          <strong>E-mail:</strong>
+          ${usuario.email || "-"}
+        </p>
 
-          <p>
-            <strong>E-mail:</strong>
-            ${usuario.email || "-"}
-          </p>
+        <p>
+          <strong>Hospital:</strong>
+          ${hospital.nome || "-"}
+        </p>
 
-          <p>
-            <strong>Hospital:</strong>
-            ${hospital.nome || "-"}
-          </p>
+        <p>
+          <strong>Endereço:</strong>
+          ${endereco.logradouro || "-"},
+          ${endereco.numero || "-"}
+        </p>
 
-          <p>
-            <strong>Endereço:</strong>
-            ${endereco.logradouro || "-"},
-            ${endereco.numero || "-"}
-          </p>
+        <p>
+          <strong>Bairro:</strong>
+          ${endereco.bairro || "-"}
+        </p>
 
-          <p>
-            <strong>Bairro:</strong>
-            ${endereco.bairro || "-"}
-          </p>
+        <p>
+          <strong>CEP:</strong>
+          ${endereco.cep || "-"}
+        </p>
 
-          <p>
-            <strong>CEP:</strong>
-            ${endereco.cep || "-"}
-          </p>
 
-          <hr />
+        <hr />
 
-          ${dados.map((r: any) => `
+        <h2 style="
+          color: #2563EB;
+          margin-bottom: 10px;
+        ">
+          Relatório de Ponto
+        </h2>
 
-            <div style="
-              margin-bottom: 20px;
-            ">
+        ${dados.map((r: any) => `
 
-              <h3>
-                Data:
-                ${formatarDataBrasil(r.data)}
-              </h3>
+          <div style="
+            margin-bottom: 24px;
+            padding: 16px;
+            border: 1px solid #CBD5E1;
+            border-radius: 12px;
+          ">
 
-              <p>
-                <strong>Entrada:</strong>
-                ${r.horaentrada || "-"}
-              </p>
+            <p>
+              <strong>Data:</strong>
+              ${formatarDataBrasil(r.data)}
+            </p>
 
-              <p>
-                <strong>Saída:</strong>
-                ${r.horasaida || "-"}
-              </p>
+            <p>
+              <strong>Entrada:</strong>
+              ${r.horaentrada || "-"}
+            </p>
 
-              <p>
-                <strong>Total:</strong>
-                ${calcularHoras(
-                  r.horaentrada,
-                  r.horasaida
-                )}
-              </p>
+            <p>
+              <strong>Saída:</strong>
+              ${r.horasaida || "-"}
+            </p>
 
-            </div>
+            <p>
+              <strong>Total Trabalhado:</strong>
+              ${calcularHoras(
+                r.horaentrada,
+                r.horasaida
+              )}
+            </p>
 
-            <hr />
+          </div>
 
-          `).join("")}
+        `).join("")}
 
-        </body>
+      </body>
 
-      </html>
-    `;
+    </html>
+  `;
 
-    try {
+  try {
 
-      const { uri } =
-        await Print.printToFileAsync({
+    const { uri } =
+
+      await Print
+        .printToFileAsync({
           html
         });
 
-      await Sharing.shareAsync(uri);
+    await Sharing
+      .shareAsync(uri);
 
-    } catch (error) {
+  } catch {
 
-      console.log(error);
-
-      Alert.alert(
-        "Erro",
-        "Falha ao gerar PDF"
-      );
-    }
+    Alert.alert(
+      "Erro",
+      "Falha ao gerar PDF"
+    );
   }
+}
 
   return (
 
-    <View style={styles.container}>
+    <LinearGradient
 
-      <ScrollView
-        contentContainerStyle={styles.content}
-      >
+      colors={[
+        "#F8FAFC",
+        "#EEF4FF",
+        "#FFFFFF"
+      ]}
 
-        {/* USUÁRIO */}
+      style={styles.gradient}
+    >
 
-        <View style={styles.card}>
+      <StatusBar
+        barStyle="dark-content"
+      />
 
-          <View style={styles.headerCard}>
+      <View style={styles.container}>
 
-            <MaterialIcons
-              name="person"
-              size={24}
-              color="#2563EB"
-            />
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
 
-            <Text style={styles.titulo}>
-              Dados do Usuário
-            </Text>
+          {/* USUÁRIO */}
 
-          </View>
+          <Animatable.View
 
-          <Text style={styles.texto}>
-            Nome: {usuario.nome || "-"}
-          </Text>
+            animation="fadeInUp"
 
-          <Text style={styles.texto}>
-            E-mail: {usuario.email || "-"}
-          </Text>
+            duration={1000}
 
-          <Text style={styles.texto}>
-            Hospital: {hospital.nome || "-"}
-          </Text>
-
-        </View>
-
-        {/* ENDEREÇO */}
-
-        <View style={styles.card}>
-
-          <View style={styles.headerCard}>
-
-            <MaterialIcons
-              name="home"
-              size={24}
-              color="#2563EB"
-            />
-
-            <Text style={styles.titulo}>
-              Endereço Cadastrado
-            </Text>
-
-          </View>
-
-          <Text style={styles.texto}>
-            Rua: {endereco.logradouro || "-"}
-          </Text>
-
-          <Text style={styles.texto}>
-            Número: {endereco.numero || "-"}
-          </Text>
-
-          <Text style={styles.texto}>
-            Bairro: {endereco.bairro || "-"}
-          </Text>
-
-          <Text style={styles.texto}>
-            CEP: {endereco.cep || "-"}
-          </Text>
-
-        </View>
-
-        {/* LOCALIZAÇÃO */}
-
-        <View style={styles.card}>
-
-          <View style={styles.headerCard}>
-
-            <MaterialIcons
-              name="location-on"
-              size={24}
-              color="#2563EB"
-            />
-
-            <Text style={styles.titulo}>
-              Localização Atual
-            </Text>
-
-          </View>
-
-          <Text style={styles.texto}>
-            Latitude: {localizacao.latitude}
-          </Text>
-
-          <Text style={styles.texto}>
-            Longitude: {localizacao.longitude}
-          </Text>
-
-        </View>
-
-        {/* RELATÓRIO */}
-
-        <View style={styles.card}>
-
-          <View style={styles.headerCard}>
-
-            <MaterialIcons
-              name="calendar-month"
-              size={24}
-              color="#2563EB"
-            />
-
-            <Text style={styles.titulo}>
-              Relatório de Ponto
-            </Text>
-
-          </View>
-
-          <TouchableOpacity
-            style={styles.botao}
-            onPress={() =>
-              setMostrarCalendario(true)
-            }
+            style={styles.card}
           >
 
-            <MaterialIcons
-              name="calendar-today"
-              size={20}
-              color="#fff"
-            />
+            <View style={styles.headerCard}>
 
-            <Text style={styles.botaoTexto}>
+              <MaterialIcons
+                name="person"
+                size={24}
+                color="#2563EB"
+              />
 
-              {dataSelecionada
+              <Text style={styles.titulo}>
+                Dados do Usuário
+              </Text>
 
-                ? dataSelecionada.toLocaleDateString("pt-BR")
+            </View>
 
-                : "Filtrar por data"}
-
+            <Text style={styles.texto}>
+              Nome: {usuario.nome || "-"}
             </Text>
 
-          </TouchableOpacity>
+            <Text style={styles.texto}>
+              E-mail: {usuario.email || "-"}
+            </Text>
 
-          {mostrarCalendario && (
+            <Text style={styles.texto}>
+              Hospital: {hospital.nome || "-"}
+            </Text>
 
-            <DateTimePicker
+          </Animatable.View>
 
-              value={
-                dataSelecionada ||
-                new Date()
+          {/* ENDEREÇO */}
+
+          <Animatable.View
+
+            animation="fadeInUp"
+
+            delay={200}
+
+            duration={1000}
+
+            style={styles.card}
+          >
+
+            <View style={styles.headerCard}>
+
+              <MaterialIcons
+                name="home"
+                size={24}
+                color="#2563EB"
+              />
+
+              <Text style={styles.titulo}>
+                Endereço
+              </Text>
+
+            </View>
+
+            <Text style={styles.texto}>
+              Rua: {endereco.logradouro || "-"}
+            </Text>
+
+            <Text style={styles.texto}>
+              Número: {endereco.numero || "-"}
+            </Text>
+
+            <Text style={styles.texto}>
+              Bairro: {endereco.bairro || "-"}
+            </Text>
+
+            <Text style={styles.texto}>
+              CEP: {endereco.cep || "-"}
+            </Text>
+
+          </Animatable.View>
+
+          {/* LOCALIZAÇÃO */}
+
+          <Animatable.View
+
+            animation="fadeInUp"
+
+            delay={400}
+
+            duration={1000}
+
+            style={styles.card}
+          >
+
+            <View style={styles.headerCard}>
+
+              <MaterialIcons
+                name="location-on"
+                size={24}
+                color="#2563EB"
+              />
+
+              <Text style={styles.titulo}>
+                Localização Atual
+              </Text>
+
+            </View>
+
+            <Text style={styles.texto}>
+              Latitude: {localizacao.latitude}
+            </Text>
+
+            <Text style={styles.texto}>
+              Longitude: {localizacao.longitude}
+            </Text>
+
+          </Animatable.View>
+
+          {/* RELATÓRIO */}
+
+          <Animatable.View
+
+            animation="fadeInUp"
+
+            delay={600}
+
+            duration={1000}
+
+            style={styles.card}
+          >
+
+            <View style={styles.headerCard}>
+
+              <MaterialIcons
+                name="description"
+                size={24}
+                color="#2563EB"
+              />
+
+              <Text style={styles.titulo}>
+                Relatórios
+              </Text>
+
+            </View>
+
+            <TouchableOpacity
+
+              style={styles.botao}
+
+              onPress={() =>
+                setMostrarCalendario(true)
               }
+            >
 
-              mode="date"
+              <MaterialIcons
+                name="calendar-today"
+                size={20}
+                color="#fff"
+              />
 
-              display={
-                Platform.OS === "ios"
-                  ? "spinner"
-                  : "default"
-              }
+              <Text style={styles.botaoTexto}>
 
-              onChange={(event, date) => {
+                {dataSelecionada
 
-                setMostrarCalendario(false);
+                  ? dataSelecionada.toLocaleDateString("pt-BR")
 
-                if (date) {
+                  : "Filtrar por Data"}
 
-                  setDataSelecionada(date);
+              </Text>
+
+            </TouchableOpacity>
+
+            {mostrarCalendario && (
+
+              <DateTimePicker
+
+                value={
+                  dataSelecionada ||
+                  new Date()
                 }
-              }}
-            />
-          )}
 
-          <TouchableOpacity
-            style={styles.botaoRelatorio}
-            onPress={gerarRelatorio}
-          >
+                mode="date"
 
-            <MaterialIcons
-              name="description"
-              size={20}
-              color="#fff"
-            />
+                display={
+                  Platform.OS === "ios"
+                    ? "spinner"
+                    : "default"
+                }
 
-            <Text style={styles.botaoTexto}>
-              Gerar Relatório
-            </Text>
+                onChange={(event, date) => {
 
-          </TouchableOpacity>
+                  setMostrarCalendario(false);
 
-          <TouchableOpacity
-            style={styles.botaoSecundario}
-            onPress={exportarPDF}
-          >
+                  if (date) {
 
-            <MaterialIcons
-              name="picture-as-pdf"
-              size={20}
-              color="#fff"
-            />
+                    setDataSelecionada(date);
+                  }
+                }}
+              />
+            )}
 
-            <Text style={styles.botaoTexto}>
-              Exportar PDF
-            </Text>
+            <TouchableOpacity
 
-          </TouchableOpacity>
+              style={styles.botaoDark}
 
+              onPress={gerarRelatorio}
+            >
+
+              <MaterialIcons
+                name="description"
+                size={20}
+                color="#fff"
+              />
+
+              <Text style={styles.botaoTexto}>
+                Gerar Relatório
+              </Text>
+
+            </TouchableOpacity>
+
+            <TouchableOpacity
+
+              style={styles.botaoPdf}
+
+              onPress={exportarPDF}
+            >
+
+              <MaterialIcons
+                name="picture-as-pdf"
+                size={20}
+                color="#fff"
+              />
+
+              <Text style={styles.botaoTexto}>
+                Exportar PDF
+              </Text>
+
+            </TouchableOpacity>
+
+          </Animatable.View>
+
+        </ScrollView>
         </View>
+    {/* MENU PREMIUM */}
 
-      </ScrollView>
+<View style={styles.menu}>
 
-      {/* MENU */}
+  <View style={styles.menu}>
 
-      <View style={styles.menu}>
+    <TouchableOpacity
+      style={styles.menuBotao}
+      onPress={() =>
+        router.replace("/")
+      }
+    >
 
-        <TouchableOpacity
-          style={styles.menuBotao}
-          onPress={() =>
-            router.replace("/")
-          }
-        >
+      <MaterialIcons
+        name="home"
+        size={26}
+        color="#64748B"
+      />
 
-          <MaterialIcons
-            name="home"
-            size={26}
-            color="#555"
-          />
+    </TouchableOpacity>
 
-          <Text style={styles.menuTexto}>
-            Início
-          </Text>
+    <TouchableOpacity
+      style={styles.menuBotao}
+      onPress={() =>
+        router.replace("/ponto")
+      }
+    >
 
-        </TouchableOpacity>
+      <MaterialIcons
+        name="schedule"
+        size={26}
+        color="#64748B"
+      />
 
-        <TouchableOpacity
-          style={styles.menuBotao}
-          onPress={() =>
-            router.replace("/ponto")
-          }
-        >
+    </TouchableOpacity>
 
-          <MaterialIcons
-            name="schedule"
-            size={26}
-            color="#555"
-          />
+    <TouchableOpacity
+      style={styles.menuBotaoAtivo}
+    >
 
-          <Text style={styles.menuTexto}>
-            Ponto
-          </Text>
+      <MaterialIcons
+        name="settings"
+        size={30}
+        color="#FFFFFF"
+      />
 
-        </TouchableOpacity>
+    </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.menuBotao}
-        >
+  </View>
 
-          <MaterialIcons
-            name="settings"
-            size={26}
-            color="#2563EB"
-          />
+</View>
 
-          <Text style={styles.menuTextoAtivo}>
-            Config
-          </Text>
-
-        </TouchableOpacity>
-
-      </View>
-
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
 
+  gradient: {
+    flex: 1
+  },
+
   container: {
     flex: 1,
-    backgroundColor: "#F1F5F9",
     justifyContent: "space-between"
   },
 
   content: {
-    padding: 16,
-    paddingBottom: 30
+    paddingHorizontal: 20,
+    paddingTop: 65,
+    paddingBottom: 140
   },
 
   card: {
-    backgroundColor: "#fff",
-    padding: 20,
-    borderRadius: 18,
-    marginBottom: 16,
 
-    shadowColor: "#000",
+    backgroundColor: "#FFFFFF",
+
+    borderRadius: 30,
+
+    padding: 22,
+
+    marginBottom: 20,
+
+    borderWidth: 1,
+
+    borderColor: "#E8EEF9",
+
+    shadowColor: "#2563EB",
 
     shadowOffset: {
       width: 0,
-      height: 2
+      height: 8
     },
 
     shadowOpacity: 0.08,
-    shadowRadius: 6,
 
-    elevation: 3
+    shadowRadius: 12,
+
+    elevation: 6
   },
 
   headerCard: {
+
     flexDirection: "row",
+
     alignItems: "center",
-    gap: 8,
-    marginBottom: 12
+
+    gap: 10,
+
+    marginBottom: 16
   },
 
   titulo: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#0F172A"
+
+    fontSize: 21,
+
+    fontWeight: "bold",
+
+    color: "#1E293B"
   },
 
   texto: {
+
     fontSize: 15,
-    color: "#475569",
-    marginBottom: 6
+
+    color: "#64748B",
+
+    marginBottom: 10,
+
+    lineHeight: 22
   },
 
   botao: {
+
     backgroundColor: "#2563EB",
-    padding: 14,
-    borderRadius: 12,
+
+    height: 58,
+
+    borderRadius: 20,
 
     flexDirection: "row",
 
-    justifyContent: "center",
-
     alignItems: "center",
-
-    gap: 8,
-
-    marginTop: 10
-  },
-
-  botaoSecundario: {
-    backgroundColor: "#1D4ED8",
-    padding: 14,
-    borderRadius: 12,
-
-    flexDirection: "row",
 
     justifyContent: "center",
 
-    alignItems: "center",
-
     gap: 8,
 
-    marginTop: 10
+    marginTop: 12,
+
+    shadowColor: "#2563EB",
+
+    shadowOffset: {
+      width: 0,
+      height: 6
+    },
+
+    shadowOpacity: 0.20,
+
+    shadowRadius: 10,
+
+    elevation: 5
   },
 
-  botaoRelatorio: {
+  botaoDark: {
+
     backgroundColor: "#0F172A",
-    padding: 14,
-    borderRadius: 12,
+
+    height: 58,
+
+    borderRadius: 20,
 
     flexDirection: "row",
 
-    justifyContent: "center",
-
     alignItems: "center",
+
+    justifyContent: "center",
 
     gap: 8,
 
-    marginTop: 10
+    marginTop: 12,
+
+    shadowColor: "#0F172A",
+
+    shadowOffset: {
+      width: 0,
+      height: 5
+    },
+
+    shadowOpacity: 0.18,
+
+    shadowRadius: 8,
+
+    elevation: 4
+  },
+
+  botaoPdf: {
+
+    backgroundColor: "#1D4ED8",
+
+    height: 58,
+
+    borderRadius: 20,
+
+    flexDirection: "row",
+
+    alignItems: "center",
+
+    justifyContent: "center",
+
+    gap: 8,
+
+    marginTop: 12,
+
+    shadowColor: "#1D4ED8",
+
+    shadowOffset: {
+      width: 0,
+      height: 5
+    },
+
+    shadowOpacity: 0.18,
+
+    shadowRadius: 8,
+
+    elevation: 4
   },
 
   botaoTexto: {
-    color: "#fff",
+
+    color: "#FFFFFF",
+
     fontWeight: "700",
-    fontSize: 15
+
+    fontSize: 16
   },
 
+  /*
+    =====================================
+    MENU IGUAL AO PONTOSCREEN
+    =====================================
+  */
+
   menu: {
+
+    position: "absolute",
+
+    bottom: 22,
+
+    left: 20,
+
+    right: 20,
+
+    height: 78,
+
+    backgroundColor: "#FFFFFF",
+
+    borderRadius: 28,
+
     flexDirection: "row",
+
+    alignItems: "center",
+
     justifyContent: "space-around",
-    backgroundColor: "#fff",
-    paddingVertical: 14,
-    borderTopWidth: 1,
-    borderColor: "#E2E8F0",
-    elevation: 8
+
+    shadowColor: "#2563EB",
+
+    shadowOffset: {
+      width: 0,
+      height: 8
+    },
+
+    shadowOpacity: 0.12,
+
+    shadowRadius: 16,
+
+    elevation: 12
   },
 
   menuBotao: {
-    alignItems: "center"
+
+    alignItems: "center",
+
+    justifyContent: "center",
+
+    width: 70
+  },
+
+  menuBotaoAtivo: {
+
+    width: 64,
+
+    height: 64,
+
+    borderRadius: 22,
+
+    backgroundColor: "#2563EB",
+
+    alignItems: "center",
+
+    justifyContent: "center",
+
+    marginTop: -35,
+
+    shadowColor: "#2563EB",
+
+    shadowOffset: {
+      width: 0,
+      height: 10
+    },
+
+    shadowOpacity: 0.30,
+
+    shadowRadius: 12,
+
+    elevation: 12
   },
 
   menuTexto: {
-    color: "#555",
+
+    color: "#64748B",
+
     fontSize: 12,
+
+    fontWeight: "600",
+
     marginTop: 4
   },
 
   menuTextoAtivo: {
-    color: "#2563EB",
-    fontSize: 12,
-    marginTop: 4,
-    fontWeight: "700"
-  }
 
+    color: "#FFFFFF",
+
+    fontSize: 11,
+
+    fontWeight: "700",
+
+    marginTop: 2
+  }
 });

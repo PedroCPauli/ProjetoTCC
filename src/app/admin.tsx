@@ -364,32 +364,45 @@ export default function AdminScreen() {
     return `${horas}h ${minutos}m`;
   }
 
-  /*
-    ============================
-    GERAR RELATÓRIO
-    ============================
-  */
+ /*
+  ============================
+  GERAR RELATÓRIO
+  ============================
+*/
 
-  function gerarRelatorio() {
+function gerarRelatorio() {
 
-    if (pontos.length === 0) {
+  if (pontos.length === 0) {
 
-      Alert.alert(
-        "Erro",
-        "Nenhum registro encontrado"
-      );
+    Alert.alert(
+      "Erro",
+      "Nenhum registro encontrado"
+    );
 
-      return;
-    }
+    return;
+  }
 
-    const texto =
-      pontos.map((p) => `
+  const texto = `
+
+==============================
+RELATÓRIO DE PONTO
+==============================
 
 Hospital:
 ${hospitalAdmin?.hospital?.nome || "-"}
 
 Funcionário:
 ${usuarioSelecionado?.nome || "-"}
+
+E-mail:
+${usuarioSelecionado?.email || "-"}
+
+Quantidade de registros:
+${pontos.length}
+
+==============================
+
+${pontos.map((p) => `
 
 Data:
 ${formatarDataBrasil(p.data)}
@@ -406,60 +419,114 @@ ${calcularHoras(
   p.horasaida
 )}
 
-      `).join("\n\n");
+--------------------------------
+
+`).join("")}
+
+`;
+
+  Alert.alert(
+    "Relatório",
+    texto
+  );
+}
+
+/*
+  ============================
+  EXPORTAR PDF
+  ============================
+*/
+
+async function exportarPDF() {
+
+  if (pontos.length === 0) {
 
     Alert.alert(
-      "Relatório",
-      texto
+      "Erro",
+      "Nenhum dado encontrado"
     );
+
+    return;
   }
 
-  /*
-    ============================
-    EXPORTAR PDF
-    ============================
-  */
+  const html = `
+    <html>
 
-  async function exportarPDF() {
+      <body style="
+        font-family: Arial;
+        padding: 24px;
+        background: #F8FAFC;
+        color: #1E293B;
+      ">
 
-    if (pontos.length === 0) {
-
-      Alert.alert(
-        "Erro",
-        "Nenhum dado encontrado"
-      );
-
-      return;
-    }
-
-    const html = `
-      <html>
-
-        <body style="
-          font-family: Arial;
-          padding: 20px;
+        <div style="
+          background: white;
+          border-radius: 20px;
+          padding: 24px;
+          border: 1px solid #E2E8F0;
         ">
 
-          <h1>
-            Relatório de Pontos
+          <h1 style="
+            color: #2563EB;
+            margin-bottom: 10px;
+          ">
+            Relatório Administrativo
           </h1>
 
-          <h3>
-            Hospital:
+          <hr style="
+            border: none;
+            border-top: 1px solid #CBD5E1;
+            margin: 20px 0;
+          " />
+
+          <h2 style="
+            color: #0F172A;
+            margin-bottom: 14px;
+          ">
+            Dados do Funcionário
+          </h2>
+
+          <p>
+            <strong>Hospital:</strong>
             ${hospitalAdmin?.hospital?.nome || "-"}
-          </h3>
+          </p>
 
-          <h3>
-            Funcionário:
+          <p>
+            <strong>Funcionário:</strong>
             ${usuarioSelecionado?.nome || "-"}
-          </h3>
+          </p>
 
-          <hr />
+          <p>
+            <strong>E-mail:</strong>
+            ${usuarioSelecionado?.email || "-"}
+          </p>
+
+          <p>
+            <strong>Total de registros:</strong>
+            ${pontos.length}
+          </p>
+
+          <hr style="
+            border: none;
+            border-top: 1px solid #CBD5E1;
+            margin: 24px 0;
+          " />
+
+          <h2 style="
+            color: #2563EB;
+            margin-bottom: 18px;
+          ">
+            Registros de Ponto
+          </h2>
 
           ${pontos.map((p) => `
 
             <div style="
-              margin-bottom: 20px;
+              border: 1px solid #CBD5E1;
+              border-radius: 16px;
+              padding: 18px;
+              margin-bottom: 18px;
+              background: #FFFFFF;
             ">
 
               <p>
@@ -478,7 +545,7 @@ ${calcularHoras(
               </p>
 
               <p>
-                <strong>Total:</strong>
+                <strong>Total Trabalhado:</strong>
                 ${calcularHoras(
                   p.horaentrada,
                   p.horasaida
@@ -487,32 +554,33 @@ ${calcularHoras(
 
             </div>
 
-            <hr />
-
           `).join("")}
 
-        </body>
+        </div>
 
-      </html>
-    `;
+      </body>
 
-    try {
+    </html>
+  `;
 
-      const { uri } =
-        await Print.printToFileAsync({
-          html
-        });
+  try {
 
-      await Sharing.shareAsync(uri);
+    const { uri } =
 
-    } catch {
+      await Print.printToFileAsync({
+        html
+      });
 
-      Alert.alert(
-        "Erro",
-        "Falha ao exportar PDF"
-      );
-    }
+    await Sharing.shareAsync(uri);
+
+  } catch {
+
+    Alert.alert(
+      "Erro",
+      "Falha ao exportar PDF"
+    );
   }
+}
 
   return (
 

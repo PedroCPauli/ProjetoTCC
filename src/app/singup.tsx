@@ -1,48 +1,55 @@
+import { useEffect, useState } from "react"
+
 import { MaterialIcons } from '@expo/vector-icons'
 import { Picker } from '@react-native-picker/picker'
+
 import * as LocalAuthentication from 'expo-local-authentication'
 import * as Location from 'expo-location'
+
 import { Link } from "expo-router"
-import { useEffect, useState } from "react"
 
 import {
   Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from "react-native"
 
-import { Input } from "../components/input"
+import { LinearGradient } from 'expo-linear-gradient'
+
 import { supabase } from "../lib/supabase"
+
+import { Input } from "../components/input"
 
 export default function Signup() {
 
-  const [nome, setNome] = useState<string>("")
-  const [usuario, setUsuario] = useState<string>("")
-  const [email, setEmail] = useState<string>("")
+  const [nome, setNome] = useState("")
+  const [usuario, setUsuario] = useState("")
+  const [email, setEmail] = useState("")
 
-  const [cep, setCep] = useState<string>("")
-  const [logradouro, setLogradouro] = useState<string>("")
-  const [numero, setNumero] = useState<string>("")
-  const [complemento, setComplemento] = useState<string>("")
-  const [bairro, setBairro] = useState<string>("")
+  const [cep, setCep] = useState("")
+  const [logradouro, setLogradouro] = useState("")
+  const [numero, setNumero] = useState("")
+  const [complemento, setComplemento] = useState("")
+  const [bairro, setBairro] = useState("")
 
-  const [latitude, setLatitude] = useState<string>("")
-  const [longitude, setLongitude] = useState<string>("")
+  const [latitude, setLatitude] = useState("")
+  const [longitude, setLongitude] = useState("")
 
-  const [senha, setSenha] = useState<string>("")
-  const [confirmarSenha, setConfirmarSenha] = useState<string>("")
+  const [senha, setSenha] = useState("")
+  const [confirmarSenha, setConfirmarSenha] = useState("")
 
-  const [tipoUsuario, setTipoUsuario] = useState<string>("")
+  const [tipoUsuario, setTipoUsuario] = useState("")
 
   const [hospitais, setHospitais] = useState<any[]>([])
-  const [hospitalSelecionado, setHospitalSelecionado] = useState<string>("")
+  const [hospitalSelecionado, setHospitalSelecionado] = useState("")
 
-  const [loading, setLoading] = useState<boolean>(false)
+  const [loading, setLoading] = useState(false)
 
   /*
     ============================
@@ -87,7 +94,7 @@ export default function Signup() {
 
   /*
     ============================
-    BUSCA CEP AUTOMÁTICO
+    BUSCA CEP
     ============================
   */
 
@@ -143,7 +150,7 @@ export default function Signup() {
 
   /*
     ============================
-    ATIVAR BIOMETRIA
+    BIOMETRIA
     ============================
   */
 
@@ -244,7 +251,7 @@ export default function Signup() {
 
   /*
     ============================
-    PEGAR LOCALIZAÇÃO
+    LOCALIZAÇÃO
     ============================
   */
 
@@ -319,7 +326,7 @@ export default function Signup() {
 
       Alert.alert(
         "Erro",
-        "Preencha todos os campos"
+        "Preencha todos os campos obrigatórios"
       )
 
       return
@@ -359,10 +366,6 @@ export default function Signup() {
 
       setLoading(true)
 
-      /*
-        LOCALIZAÇÃO
-      */
-
       const localizacao =
         await capturarLocalizacao()
 
@@ -380,18 +383,13 @@ export default function Signup() {
         localizacao.longitude.toString()
       )
 
-      /*
-        ADMIN = 1
-        PLANTONISTA = 2
-      */
-
       const idTipoUsuario =
         tipoUsuario === "admin"
           ? 1
           : 2
 
       /*
-        CADASTRA ENDEREÇO
+        ENDEREÇO
       */
 
       const {
@@ -407,13 +405,7 @@ export default function Signup() {
           logradouro,
           numero,
           complemento,
-          bairro,
-
-          latitude:
-            localizacao.latitude,
-
-          longitude:
-            localizacao.longitude
+          bairro
 
         })
 
@@ -428,7 +420,7 @@ export default function Signup() {
       }
 
       /*
-        CADASTRA USUÁRIO
+        USUÁRIO
       */
 
       const {
@@ -510,64 +502,86 @@ export default function Signup() {
 
   return (
 
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.select({
-        ios: "padding",
-        android: "height"
-      })}
+    <LinearGradient
+
+      colors={[
+        "#F8FAFC",
+        "#EEF4FF",
+        "#FFFFFF"
+      ]}
+
+      style={styles.gradient}
     >
 
-      <ScrollView
-        contentContainerStyle={{
-          flexGrow: 1
-        }}
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="#F8FAFC"
+      />
+
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+
+        behavior={Platform.select({
+          ios: "padding",
+          android: "height"
+        })}
       >
 
-        <View style={styles.container}>
+        <ScrollView
+          contentContainerStyle={{
+            flexGrow: 1
+          }}
 
-          <View style={styles.card}>
+          showsVerticalScrollIndicator={false}
+        >
 
-            <Text style={styles.title}>
-              Cadastro Usuário
-            </Text>
+          <View style={styles.container}>
 
-            <Text style={styles.subtitle}>
-              Preencha os dados abaixo
-            </Text>
+            <View style={styles.card}>
 
-            <View style={styles.form}>
+              <Text style={styles.title}>
+                Criar conta
+              </Text>
+
+              <Text style={styles.subtitle}>
+                Cadastro de usuário hospitalar
+              </Text>
+
+              {/* DADOS */}
 
               <Input
-                placeholder="Nome completo"
+                label="Nome completo"
+                obrigatorio
                 value={nome}
                 onChangeText={setNome}
               />
 
               <Input
-                placeholder="Usuário"
+                label="Usuário"
+                obrigatorio
                 value={usuario}
                 onChangeText={setUsuario}
               />
 
               <Input
-                placeholder="E-mail"
-                value={email}
+                label="E-mail"
+                obrigatorio
                 keyboardType="email-address"
+                value={email}
                 onChangeText={setEmail}
               />
 
               {/* HOSPITAL */}
 
-              <Text style={styles.tipoLabel}>
-                Hospital
+              <Text style={styles.label}>
+                Hospital *
               </Text>
 
               <View style={styles.pickerContainer}>
 
                 <Picker
                   selectedValue={hospitalSelecionado}
-                  onValueChange={(itemValue: string) =>
+                  onValueChange={(itemValue) =>
                     setHospitalSelecionado(itemValue)
                   }
                 >
@@ -591,36 +605,40 @@ export default function Signup() {
 
               </View>
 
-              {/* CEP */}
+              {/* ENDEREÇO */}
 
               <Input
-                placeholder="CEP"
+                label="CEP"
+                obrigatorio
                 keyboardType="numeric"
                 value={cep}
                 onChangeText={buscarCEP}
               />
 
               <Input
-                placeholder="Logradouro"
+                label="Logradouro"
+                obrigatorio
                 value={logradouro}
                 onChangeText={setLogradouro}
               />
 
               <Input
-                placeholder="Número"
-                value={numero}
+                label="Número"
+                obrigatorio
                 keyboardType="numeric"
+                value={numero}
                 onChangeText={setNumero}
               />
 
               <Input
-                placeholder="Complemento"
+                label="Complemento"
                 value={complemento}
                 onChangeText={setComplemento}
               />
 
               <Input
-                placeholder="Bairro"
+                label="Bairro"
+                obrigatorio
                 value={bairro}
                 onChangeText={setBairro}
               />
@@ -628,203 +646,232 @@ export default function Signup() {
               {/* LOCALIZAÇÃO */}
 
               <Input
-                placeholder="Latitude"
+                label="Latitude"
                 value={latitude}
                 editable={false}
               />
 
               <Input
-                placeholder="Longitude"
+                label="Longitude"
                 value={longitude}
                 editable={false}
               />
 
               {/* TIPO USUÁRIO */}
 
-              <View style={styles.tipoContainer}>
+              <Text style={styles.label}>
+                Tipo de Usuário *
+              </Text>
 
-                <Text style={styles.tipoLabel}>
-                  Tipo de Usuário
-                </Text>
+              <View style={styles.tipoButtons}>
 
-                <View style={styles.tipoButtons}>
+                <TouchableOpacity
+                  style={[
 
-                  <TouchableOpacity
+                    styles.tipoButton,
+
+                    tipoUsuario === "admin" &&
+                    styles.tipoButtonActive
+
+                  ]}
+
+                  onPress={() =>
+                    setTipoUsuario("admin")
+                  }
+                >
+
+                  <MaterialIcons
+                    name="admin-panel-settings"
+                    size={20}
+                    color={
+                      tipoUsuario === "admin"
+                        ? "#fff"
+                        : "#2563EB"
+                    }
+                  />
+
+                  <Text
                     style={[
 
-                      styles.tipoButton,
+                      styles.tipoButtonText,
 
                       tipoUsuario === "admin" &&
-                      styles.tipoButtonActive
+                      styles.tipoButtonTextActive
 
                     ]}
-
-                    onPress={() =>
-                      setTipoUsuario("admin")
-                    }
                   >
+                    Administrador
+                  </Text>
 
-                    <MaterialIcons
-                      name="admin-panel-settings"
-                      size={20}
-                      color={
-                        tipoUsuario === "admin"
-                          ? "#fff"
-                          : "#2E86DE"
-                      }
-                    />
+                </TouchableOpacity>
 
-                    <Text
-                      style={[
+                <TouchableOpacity
+                  style={[
 
-                        styles.tipoButtonText,
+                    styles.tipoButton,
 
-                        tipoUsuario === "admin" &&
-                        styles.tipoButtonTextActive
+                    tipoUsuario === "plantonista" &&
+                    styles.tipoButtonActive
 
-                      ]}
-                    >
-                      Administrador
-                    </Text>
+                  ]}
 
-                  </TouchableOpacity>
+                  onPress={() =>
+                    setTipoUsuario("plantonista")
+                  }
+                >
 
-                  <TouchableOpacity
+                  <MaterialIcons
+                    name="medical-services"
+                    size={20}
+                    color={
+                      tipoUsuario === "plantonista"
+                        ? "#fff"
+                        : "#2563EB"
+                    }
+                  />
+
+                  <Text
                     style={[
 
-                      styles.tipoButton,
+                      styles.tipoButtonText,
 
                       tipoUsuario === "plantonista" &&
-                      styles.tipoButtonActive
+                      styles.tipoButtonTextActive
 
                     ]}
-
-                    onPress={() =>
-                      setTipoUsuario("plantonista")
-                    }
                   >
+                    Plantonista
+                  </Text>
 
-                    <MaterialIcons
-                      name="medical-services"
-                      size={20}
-                      color={
-                        tipoUsuario === "plantonista"
-                          ? "#fff"
-                          : "#2E86DE"
-                      }
-                    />
-
-                    <Text
-                      style={[
-
-                        styles.tipoButtonText,
-
-                        tipoUsuario === "plantonista" &&
-                        styles.tipoButtonTextActive
-
-                      ]}
-                    >
-                      Plantonista
-                    </Text>
-
-                  </TouchableOpacity>
-
-                </View>
+                </TouchableOpacity>
 
               </View>
 
+              {/* SENHAS */}
+
               <Input
-                placeholder="Senha"
-                value={senha}
+                label="Senha"
+                obrigatorio
                 secureTextEntry
+                value={senha}
                 onChangeText={setSenha}
               />
 
               <Input
-                placeholder="Confirmar senha"
-                value={confirmarSenha}
+                label="Confirmar senha"
+                obrigatorio
                 secureTextEntry
+                value={confirmarSenha}
                 onChangeText={setConfirmarSenha}
               />
 
             </View>
 
-          </View>
+            {/* BOTÃO */}
 
-          <TouchableOpacity
-            style={styles.botao}
-            onPress={handleSignup}
-          >
+            <TouchableOpacity
+              activeOpacity={0.9}
+              style={styles.botao}
+              onPress={handleSignup}
+            >
 
-            <MaterialIcons
-              name="person-add"
-              size={22}
-              color="#fff"
-            />
+              <LinearGradient
 
-            <Text style={styles.botaoTexto}>
+                colors={[
+                  "#60A5FA",
+                  "#3B82F6",
+                  "#2563EB"
+                ]}
 
-              {loading
-                ? "Cadastrando..."
-                : "Cadastrar"}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+
+                style={styles.botaoGradient}
+              >
+
+                <MaterialIcons
+                  name="person-add"
+                  size={22}
+                  color="#fff"
+                />
+
+                <Text style={styles.botaoTexto}>
+
+                  {loading
+                    ? "Cadastrando..."
+                    : "Cadastrar"}
+
+                </Text>
+
+              </LinearGradient>
+
+            </TouchableOpacity>
+
+            <Text style={styles.footerText}>
+
+              Já possui conta?
+
+              {" "}
+
+              <Link
+                href={"/"}
+                style={styles.footerLink}
+              >
+                Entre aqui
+              </Link>
 
             </Text>
 
-          </TouchableOpacity>
+          </View>
 
-          <Text style={styles.footerText}>
+        </ScrollView>
 
-            Já possui conta?
+      </KeyboardAvoidingView>
 
-            {" "}
-
-            <Link
-              href={"/"}
-              style={styles.footerLink}
-            >
-              Entre aqui
-            </Link>
-
-          </Text>
-
-        </View>
-
-      </ScrollView>
-
-    </KeyboardAvoidingView>
+    </LinearGradient>
   )
 }
 
 const styles = StyleSheet.create({
 
+  gradient: {
+    flex: 1
+  },
+
   container: {
     flex: 1,
-    backgroundColor: "#F4F6F8",
-    padding: 20,
-    justifyContent: "center"
+    padding: 20
   },
 
   card: {
-    backgroundColor: "#fff",
-    padding: 20,
-    borderRadius: 20,
-    marginBottom: 20,
+    backgroundColor: "#FFFFFF",
 
-    shadowColor: "#000",
+    padding: 24,
+
+    borderRadius: 28,
+
+    marginBottom: 24,
+
+    borderWidth: 1,
+
+    borderColor: "#E2E8F0",
+
+    shadowColor: "#2563EB",
 
     shadowOffset: {
       width: 0,
-      height: 2
+      height: 8
     },
 
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 0.08,
 
-    elevation: 4
+    shadowRadius: 12,
+
+    elevation: 6
   },
 
   title: {
-    fontSize: 30,
+    fontSize: 32,
     fontWeight: "bold",
     color: "#1E293B"
   },
@@ -832,50 +879,55 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 15,
     color: "#64748B",
-    marginTop: 5,
-    marginBottom: 20
+    marginTop: 8,
+    marginBottom: 28
   },
 
-  form: {
-    gap: 14
-  },
-
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: "#CBD5E1",
-    borderRadius: 12,
-    overflow: "hidden",
-    backgroundColor: "#fff"
-  },
-
-  tipoContainer: {
-    marginBottom: 10
-  },
-
-  tipoLabel: {
+  label: {
     fontSize: 15,
     fontWeight: "600",
     color: "#1E293B",
-    marginBottom: 10
+    marginBottom: 10,
+    marginTop: 5
+  },
+
+  pickerContainer: {
+
+    borderWidth: 1.5,
+
+    borderColor: "#CBD5E1",
+
+    borderRadius: 16,
+
+    overflow: "hidden",
+
+    marginBottom: 22,
+
+    backgroundColor: "#fff"
   },
 
   tipoButtons: {
     flexDirection: "row",
-    gap: 10
+    gap: 10,
+    marginBottom: 22
   },
 
   tipoButton: {
+
     flex: 1,
 
     borderWidth: 2,
-    borderColor: "#2E86DE",
 
-    borderRadius: 14,
+    borderColor: "#2563EB",
 
-    paddingVertical: 14,
+    borderRadius: 16,
+
+    paddingVertical: 16,
 
     flexDirection: "row",
+
     justifyContent: "center",
+
     alignItems: "center",
 
     gap: 8,
@@ -884,11 +936,11 @@ const styles = StyleSheet.create({
   },
 
   tipoButtonActive: {
-    backgroundColor: "#2E86DE"
+    backgroundColor: "#2563EB"
   },
 
   tipoButtonText: {
-    color: "#2E86DE",
+    color: "#2563EB",
     fontWeight: "bold"
   },
 
@@ -897,11 +949,28 @@ const styles = StyleSheet.create({
   },
 
   botao: {
-    backgroundColor: "#2E86DE",
 
-    padding: 16,
+    borderRadius: 18,
 
-    borderRadius: 14,
+    overflow: "hidden",
+
+    elevation: 5,
+
+    shadowColor: "#2563EB",
+
+    shadowOffset: {
+      width: 0,
+      height: 6
+    },
+
+    shadowOpacity: 0.2,
+
+    shadowRadius: 8
+  },
+
+  botaoGradient: {
+
+    height: 58,
 
     flexDirection: "row",
 
@@ -909,26 +978,24 @@ const styles = StyleSheet.create({
 
     alignItems: "center",
 
-    gap: 8,
-
-    elevation: 4
+    gap: 10
   },
 
   botaoTexto: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "bold"
   },
 
   footerText: {
     textAlign: "center",
-    marginTop: 25,
-    color: "#64748B"
+    marginBottom: 30,
+    color: "#64748B",
+    fontSize: 15
   },
 
   footerLink: {
     color: "#2563EB",
     fontWeight: "bold"
   }
-
 })
