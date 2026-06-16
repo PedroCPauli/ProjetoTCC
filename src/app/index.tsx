@@ -181,17 +181,22 @@ export default function Index() {
 
       if (data.biometriaativa === true) {
 
-        const auth =
-          await LocalAuthentication
-            .authenticateAsync({
+        const supportedTypes =
+  await LocalAuthentication.supportedAuthenticationTypesAsync();
 
-              promptMessage:
-                "Confirme sua biometria",
+  const possuiFaceID =
+      supportedTypes.includes(
+     LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION
+   );
 
-              cancelLabel:
-                "Cancelar"
-
-            });
+  const auth =
+      await LocalAuthentication.authenticateAsync({
+       promptMessage: possuiFaceID
+        ? "Confirme sua identidade com Face ID"
+        : "Confirme sua biometria",
+      cancelLabel: "Cancelar",
+      disableDeviceFallback: false
+    });
 
         if (!auth.success) {
 

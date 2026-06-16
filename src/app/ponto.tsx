@@ -1,6 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as LocalAuthentication from "expo-local-authentication";
 
 import * as Location from 'expo-location';
 
@@ -230,6 +231,60 @@ export default function PontoScreen() {
       const usuario =
         JSON.parse(usuarioStorage);
 
+      /*
+=========================
+BIOMETRIA OBRIGATÓRIA
+=========================
+*/
+
+      if (usuario.biometriaativa) {
+
+        const hardwareDisponivel =
+          await LocalAuthentication.hasHardwareAsync();
+
+        const biometriaCadastrada =
+          await LocalAuthentication.isEnrolledAsync();
+
+        if (
+          !hardwareDisponivel ||
+          !biometriaCadastrada
+        ) {
+
+          Alert.alert(
+            "Erro",
+            "Nenhuma biometria cadastrada no dispositivo."
+          );
+
+          return;
+        }
+
+        const auth =
+          await LocalAuthentication.authenticateAsync({
+
+            promptMessage:
+              "Confirme sua biometria",
+
+            cancelLabel:
+              "Cancelar",
+
+            fallbackLabel:
+              "Usar senha",
+
+            disableDeviceFallback:
+              false
+          });
+
+        if (!auth.success) {
+
+          Alert.alert(
+            "Erro",
+            "Autenticação biométrica inválida."
+          );
+
+          return;
+        }
+      }
+
       if (!usuario.idhospital) {
 
         Alert.alert(
@@ -241,31 +296,30 @@ export default function PontoScreen() {
       }
 
       const {
-
-        data: endereco,
-        error: enderecoError
+        data: hospital,
+        error: hospitalError
 
       } = await supabase
 
-        .from("endereco")
+        .from("hospital")
 
         .select("*")
 
         .eq(
-          "idendereco",
-          usuario.idendereco
+          "idhospital",
+          usuario.idhospital
         )
 
         .single();
 
       if (
-        enderecoError ||
-        !endereco
+        hospitalError ||
+        !hospital
       ) {
 
         Alert.alert(
           "Erro",
-          "Endereço não encontrado"
+          "Hospital não encontrado"
         );
 
         return;
@@ -284,19 +338,21 @@ export default function PontoScreen() {
           ),
 
           Number(
-            endereco.latitude
+            hospital.latitude
           ),
 
           Number(
-            endereco.longitude
+            hospital.longitude
           )
         );
 
-      if (distancia > 150) {
+      const RAIO_PERMITIDO = 200;
+
+      if (distancia > RAIO_PERMITIDO) {
 
         Alert.alert(
           "Localização inválida",
-          `Você está a ${Math.round(distancia)}m do local permitido`
+          `Você está a ${Math.round(distancia)} metros do hospital autorizado`
         );
 
         return;
